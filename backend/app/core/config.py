@@ -13,10 +13,10 @@ from pathlib import Path  # rutas independientes del sistema operativo
 from pydantic import SecretStr  # tipo que oculta el valor al imprimirlo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Ruta absoluta a backend/.env calculada desde ESTE archivo (backend/app/config.py):
-# parents[0] = backend/app, parents[1] = backend. Así el .env se encuentra aunque
-# el proceso se ejecute desde otra carpeta (raíz del monorepo, VS Code, tests...).
-ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+# Ruta absoluta a backend/.env calculada desde ESTE archivo (backend/app/core/config.py):
+# parents[0] = backend/app/core, parents[1] = backend/app, parents[2] = backend.
+# Así el .env se encuentra aunque el proceso se ejecute desde otra carpeta.
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):

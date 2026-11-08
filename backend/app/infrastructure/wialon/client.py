@@ -27,8 +27,8 @@ Wialon NO usa códigos HTTP para los errores: responde HTTP 200 con un cuerpo
 
 Decisiones de diseño 
 -------------------------------------
-1. **Sesión única por aplicación.** ``app/main.py`` crea UNA sola instancia de
-   este cliente al arrancar FastAPI; todas las peticiones la comparten.
+1. **Sesión única por aplicación.** ``create_app()`` en ``app/main.py`` crea UNA
+   sola instancia de este cliente al arrancar FastAPI; todas las peticiones la comparten.
 2. **Login perezoso (lazy).** El login ocurre en la primera llamada real, no al
    arrancar, para que el backend levante aunque Wialon esté caído.
 3. **Re-login protegido con ``asyncio.Lock``.** Si la sesión expira y llegan
@@ -52,29 +52,18 @@ from typing import Any, Self  # Self = tipo de retorno de __aenter__
 
 import httpx  # cliente HTTP asíncrono (no bloquea el event loop de FastAPI)
 
+# Errores y sus códigos viven en errors.py (un módulo = una responsabilidad).
+from app.infrastructure.wialon.errors import (
+    ERROR_INVALID_SESSION,
+    ERROR_NETWORK,
+    WIALON_ERRORS,
+    WialonError,
+)
+
 # Logger con el nombre del módulo: permite filtrar los logs de Wialon por separado.
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Códigos de error
-# ---------------------------------------------------------------------------
-ERROR_INVALID_SESSION = 1  # sesión expirada o inválida -> se renueva automáticamente
-ERROR_NETWORK = -1  # código PROPIO (no de Wialon): fallo de red/HTTP antes de recibir JSON
-
-# Traducción al español de los códigos de error documentados por Wialon.
-WIALON_ERRORS: dict[int, str] = {
-    ERROR_INVALID_SESSION: "Sesión inválida o expirada",
-    2: "Nombre de servicio inválido",  # svc mal escrito
-    3: "Resultado inválido",
-    4: "Parámetros de entrada inválidos",  # ej. WRONG_TOKEN_LENGTH (token de 71 chars)
-    5: "Error al ejecutar la solicitud",
-    6: "Error desconocido",
-    7: "Acceso denegado",  # el token no tiene permiso sobre ese objeto
-    8: "Usuario o contraseña inválidos (o token inválido/expirado)",
-    9: "Servidor de autorización no disponible",
-    1001: "No hay mensajes en el intervalo seleccionado",
-    1003: "Solo se permite una solicitud a la vez",  # por eso el explorador va secuencial
-}
+#POSTDATA MIA DANIEL :) SVC ES LA QUE NOS PROCESA LAS REGLAS DE NEGOCIO, PARAMS ES EL JSON CON LOS DATOS DE LA PETICION, SID ES EL ID DE SESION QUE SE USA PARA AUTENTICAR LA PETICION
 
 # ---------------------------------------------------------------------------
 # Flags de unidades (avl_unit = vehículos). Decimal (hex en el comentario).
@@ -121,20 +110,6 @@ SENSITIVE_LOGIN_KEYS = frozenset(
         "host",  # IP pública desde la que nos conectamos (dato personal)
     }
 )
-
-
-class WialonError(Exception):
-    """Error de Wialon (código de la API) o de comunicación (``ERROR_NETWORK``).
-
-    Unifica todos los fallos en un solo tipo: las capas superiores (rutas
-    FastAPI, scripts) capturan una sola excepción y deciden según ``code``
-    (p. ej. 8 = token inválido -> 401 hacia el frontend).
-    """
-
-    def __init__(self, code: int, message: str) -> None:
-        super().__init__(f"Wialon error {code}: {message}")  # texto legible en logs/consola
-        self.code = code  # código numérico para decidir programáticamente
-        self.message = message  # descripción en español o el "reason" de Wialon
 
 
 @dataclass(frozen=True)  # frozen = inmutable: la sesión se reemplaza, nunca se modifica

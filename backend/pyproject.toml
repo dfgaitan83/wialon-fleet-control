@@ -18,6 +18,7 @@ package = false
 
 [dependency-groups]
 dev = [
+    "import-linter>=2.16",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.4.1.post1",
     "ruff>=0.17.4",
@@ -28,3 +29,69 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 pythonpath = ["."]
+
+# ===========================================================================
+# import-linter: convierte la arquitectura hexagonal en una regla VERIFICABLE.
+# Comando:  python -m uv run lint-imports
+# Si alguien rompe una regla (ej. importar httpx en un servicio), falla con el
+# archivo y la línea exactos. Documentación: https://import-linter.readthedocs.io
+# ===========================================================================
+[tool.importlinter]
+root_packages = ["app"]
+# Necesario para poder prohibir librerías externas (httpx, sqlalchemy, fastapi...).
+include_external_packages = true
+
+# 1) Dirección de las capas: una capa solo puede importar a las de DEBAJO.
+#    api -> application -> domain. Nunca al revés (domain no conoce application, etc.).
+[[tool.importlinter.contracts]]
+name = "Capas: api -> application -> domain"
+type = "layers"
+layers = [
+    "app.api",
+    "app.application",
+    "app.domain",
+]
+
+# 2) LA REGLA PRINCIPAL: el núcleo (dominio + aplicación) no conoce detalles técnicos.
+#    Ningún servicio ni entidad puede importar infraestructura, HTTP, BD ni el framework web.
+[[tool.importlinter.contracts]]
+name = "Dominio y aplicación sin infraestructura (ni httpx, SQLAlchemy, FastAPI)"
+type = "forbidden"
+source_modules = [
+    "app.domain",
+    "app.application",
+]
+forbidden_modules = [
+    "app.infrastructure",  # Wialon y BD solo se usan a través de puertos (Protocols)
+    "app.api",
+    "app.main",  # la raíz de composición depende del núcleo, no al revés
+    "httpx",
+    "sqlalchemy",
+    "fastapi",
+    "starlette",  # base de FastAPI; prohibirlo evita "colarlo" indirectamente
+]
+
+# 3) Dominio puro: ni siquiera pydantic ni la configuración; solo librería estándar.
+[[tool.importlinter.contracts]]
+name = "Dominio puro (solo librería estándar)"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = [
+    "pydantic",
+    "pydantic_settings",
+    "app.core",
+]
+
+# 4) Core es transversal: lo usan todos, así que no puede depender de ninguna capa
+#    (evita ciclos de imports).
+[[tool.importlinter.contracts]]
+name = "Core independiente de las capas"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = [
+    "app.api",
+    "app.application",
+    "app.domain",
+    "app.infrastructure",
+    "app.main",
+]

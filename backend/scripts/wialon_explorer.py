@@ -1,7 +1,7 @@
 """Meta M1: explorador de la cuenta Wialon (SOLO LECTURA).
 
 Qué hace:
-1. Login con el token del ``.env`` usando el cliente único (``app/services/wialon_client.py``).
+1. Login con el token del ``.env`` usando el cliente único (``app/infrastructure/wialon/client.py``).
 2. Lista vehículos (``avl_unit``) y recursos (``avl_resource``) con flags en decimal.
 3. Imprime un resumen: vehículos con posición, conductores, pasajeros y permisos (``uacl``).
 4. Guarda el JSON crudo en ``tests/fixtures/wialon/``: son las fixtures oficiales para
@@ -23,13 +23,15 @@ from datetime import UTC, datetime  # conversión de Unix -> texto, siempre en U
 from pathlib import Path
 from typing import Any
 
-from app.config import get_settings
-from app.services.wialon_client import (  # se REUTILIZA el cliente: nada de llamadas HTTP propias
+# Se REUTILIZA el cliente (nada de llamadas HTTP propias). Un script es capa externa:
+# puede usar infraestructura directamente.
+from app.core.config import get_settings
+from app.infrastructure.wialon.client import (
     RESOURCE_FLAGS_EXPLORE,
     UNIT_FLAGS_EXPLORE,
     WialonClient,
-    WialonError,
 )
+from app.infrastructure.wialon.errors import WialonError
 
 # backend/tests/fixtures/wialon, calculado desde este archivo (backend/scripts/...).
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "wialon"

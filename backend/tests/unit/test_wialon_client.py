@@ -17,12 +17,12 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from app.services.wialon_client import (
+from app.infrastructure.wialon.client import (
     SENSITIVE_LOGIN_KEYS,
     UNIT_FLAGS_EXPLORE,
     WialonClient,
-    WialonError,
 )
+from app.infrastructure.wialon.errors import WialonError
 from scripts.wialon_explorer import redact_resources
 
 # Dominio falso (.test no existe): si algo intentara salir a la red, fallaría.
