@@ -1,0 +1,111 @@
+# =============================================================================
+# CI del monorepo: valida backend (FastAPI) y frontend (React) en cada push a
+# main y en cada Pull Request. Los dos jobs corren EN PARALELO.
+#
+# Qué garantiza (para sustentar):
+#   - Backend: estilo (ruff), arquitectura hexagonal (lint-imports), tests con
+#     cobertura y dependencias sin vulnerabilidades conocidas (pip-audit).
+#   - Frontend: lint, tests (Vitest), build de producción (incluye TypeScript)
+#     y dependencias de producción sin vulnerabilidades altas (npm audit).
+#   - Las dependencias se instalan EXACTAMENTE del lockfile (uv sync --locked /
+#     npm ci): si el lock no coincide con el manifiesto, el CI falla.
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+# Mínimo privilegio: el workflow solo necesita leer el código.
+permissions:
+  contents: read
+
+# Si llega un push nuevo a la misma rama, se cancela la ejecución anterior (ahorra minutos).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ["3.13"] # misma versión que backend/.python-version
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Valor FICTICIO: los tests nunca llaman a Wialon (la red se simula).
+      # Solo evita que la configuración falle si algún import la carga.
+      WIALON_TOKEN: ci-dummy-token-not-a-secret
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      # astral-sh/setup-uv NO publica etiqueta flotante de versión mayor ("@v10" no
+      # existe y el job fallaría). Se fija al SHA del commit de v10.3.3: es una
+      # action de terceros y el SHA es inmutable (nadie puede mover la etiqueta).
+      - name: Instalar uv (con caché de dependencias)
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Instalar dependencias (exactas del uv.lock)
+        run: uv sync --locked
+
+      - name: Estilo y errores comunes (ruff)
+        run: uv run ruff check .
+
+      - name: Contratos de arquitectura hexagonal (import-linter)
+        run: uv run lint-imports
+
+      - name: Tests unitarios con cobertura (pytest)
+        run: uv run pytest --cov=app --cov=scripts --cov-report=term-missing
+
+      - name: Vulnerabilidades conocidas en dependencias (pip-audit)
+        run: uv run pip-audit --progress-spinner off
+
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend (Node desde .nvmrc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      # Node 24 (frontend/.nvmrc): Vitest 5 exige Node >= 22.12, así que Node 20 fallaría.
+      - name: Configurar Node.js (con caché de npm)
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias (exactas del package-lock.json)
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Tests unitarios y de integración (Vitest)
+        run: npm test
+
+      - name: Build de producción (TypeScript + Vite)
+        run: npm run build
+
+      # Solo dependencias que llegan al navegador; las de desarrollo (ESLint) no se publican.
+      - name: Vulnerabilidades altas en dependencias de producción (npm audit)
+        run: npm audit --omit=dev --audit-level=high

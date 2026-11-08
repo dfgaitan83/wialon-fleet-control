@@ -1,16 +1,26 @@
 [project]
 name = "wialon-fleet-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "API de control de flota sobre Wialon (FastAPI, arquitectura hexagonal ligera)"
 readme = "README.md"
 authors = [
     { name = "dfgaitan83", email = "162677396+dfgaitan83@users.noreply.github.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.20.1",
+    "argon2-cffi>=25.1.0",
+    "asyncpg>=0.32.0",
+    "cachetools>=8.0.0",
     "fastapi[standard]>=0.162.2",
     "httpx>=0.28.1",
     "pydantic-settings>=2.16.2",
+    "pyjwt>=2.15.1",
+    "slowapi>=0.1.10",
+    "sqlalchemy>=2.1.8",
+    "structlog>=26.1.0",
+    "tenacity>=9.2.1",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [tool.uv]
@@ -19,8 +29,11 @@ package = false
 [dependency-groups]
 dev = [
     "import-linter>=2.16",
+    "pip-audit>=2.10.1",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.4.1.post1",
+    "pytest-cov>=7.1.0",
+    "respx>=0.23.1",
     "ruff>=0.17.4",
 ]
 
