@@ -48,9 +48,29 @@ MEASURE_UNITS = {
 }
 MPH_MEASURE_UNITS = frozenset({1, 2})  # SOLO estos requieren convertir mph -> km/h en los mappers
 
-REDACTED = "***"  # valor que reemplaza a los datos sensibles en las fixtures
-# Si el nombre de un campo jp contiene alguna de estas palabras, su valor se oculta.
-SENSITIVE_JP_KEYWORDS = ("password", "contraseña", "clave", "pin")
+REDACTED = "***"  # valor que reemplaza por COMPLETO a los secretos
+VISIBLE_TAIL = 2  # en identificadores se conservan los 2 últimos caracteres (formato útil a tests)
+
+# INCIDENTE CORREGIDO (2026-11-09): la primera versión solo enmascaraba contraseñas
+# del jp y publicó en el repo (público) datos sensibles de la cuenta compartida.
+# Regla única, aplicada por NOMBRE de campo:
+#   - SECRETO  -> "***" (contraseñas, claves).
+#   - PERSONAL -> enmascarado parcial (documentos, teléfonos, propietario, SIM...).
+
+# Campos FIJOS de Wialon (nombre exacto de la clave en el JSON):
+UNIT_SECRET_KEYS = frozenset({"psw"})  # contraseña del dispositivo GPS
+UNIT_PERSONAL_KEYS = frozenset({"ph", "ph2"})  # teléfonos de la SIM del equipo
+PERSON_SECRET_KEYS = frozenset({"pwd"})  # clave móvil del conductor (app de Wialon)
+PERSON_PERSONAL_KEYS = frozenset({"p"})  # teléfono del conductor/pasajero
+
+# Campos PERSONALIZADOS (jp de personas, flds de unidades): los nombra cada empresa,
+# así que se reconocen por palabras clave dentro del nombre (en minúsculas).
+SECRET_NAME_KEYWORDS = ("password", "contraseña", "clave", "pin", "pwd")
+PERSONAL_NAME_KEYWORDS = (
+    "cedula", "cédula", "c.c", "documento", "nacimiento", "licencia", "nit",
+    "iccid", "propietario", "propoietario", "chasis", "motor", "telefono", "teléfono", "celular",
+)  # fmt: skip
+PERSONAL_EXACT_NAMES = frozenset({"cc", "id"})  # demasiado cortos para buscarlos como subcadena
 
 # Bits estándar de "uacl" (permisos del usuario actual sobre el objeto).
 # uacl es un entero donde cada bit es un permiso: se comprueban con "&" (AND binario).
@@ -83,29 +103,101 @@ def _acl(uacl: int | None) -> str:
     return f"{uacl} ({', '.join(names) or 'sin bits estándar'})"
 
 
+def mask_value(value: str) -> str:
+    """Enmascara conservando longitud y los 2 últimos caracteres.
+
+    "+573117382120" -> "+**********20"   |   "1020304050" -> "********50"
+    """
+    if len(value) <= VISIBLE_TAIL:
+        return REDACTED
+    prefix = "+" if value.startswith("+") else ""  # el "+" internacional no es dato sensible
+    hidden = value[len(prefix) : -VISIBLE_TAIL]
+    return f"{prefix}{'*' * len(hidden)}{value[-VISIBLE_TAIL:]}"
+
+
+def classify_field_name(name: str) -> str | None:
+    """Clasifica un campo PERSONALIZADO por su nombre: "secret", "personal" o None."""
+    lowered = name.strip().lower()
+    if any(word in lowered for word in SECRET_NAME_KEYWORDS):
+        return "secret"
+    if lowered in PERSONAL_EXACT_NAMES or any(word in lowered for word in PERSONAL_NAME_KEYWORDS):
+        return "personal"
+    return None
+
+
+def _apply(kind: str | None, value: Any) -> Any:
+    """Aplica la regla al valor (solo si tiene contenido)."""
+    if not value or kind is None:
+        return value
+    if kind == "secret":
+        return REDACTED
+    return mask_value(str(value))
+
+
 def _redact_jp(jp: dict[str, Any]) -> dict[str, Any]:
-    """Devuelve un jp NUEVO con los campos sensibles enmascarados (no modifica el original)."""
+    """jp NUEVO ({nombre: valor}) con secretos y datos personales enmascarados."""
+    return {name: _apply(classify_field_name(name), value) for name, value in jp.items()}
+
+
+def _redact_flds(flds: dict[str, Any]) -> dict[str, Any]:
+    """flds NUEVO ({id: {"n": nombre, "v": valor}}): se clasifica por "n" y se enmascara "v"."""
     return {
-        # Si la clave (en minúsculas) contiene "password", "clave"... se reemplaza el valor.
-        k: (REDACTED if any(w in k.lower() for w in SENSITIVE_JP_KEYWORDS) else v)
-        for k, v in jp.items()
+        fid: {**field, "v": _apply(classify_field_name(str(field.get("n", ""))), field.get("v"))}
+        for fid, field in flds.items()
     }
 
 
-def _redact_people(people: dict[str, Any]) -> dict[str, Any]:
-    """Aplica _redact_jp a cada persona (conductor o pasajero) del diccionario {id: persona}."""
-    # {**p, "jp": ...} copia la persona y sustituye solo su jp -> inmutabilidad.
-    return {pid: {**p, "jp": _redact_jp(p.get("jp") or {})} for pid, p in people.items()}
+def _redact_fixed(
+    item: dict[str, Any], secret_keys: frozenset[str], personal_keys: frozenset[str]
+) -> dict[str, Any]:
+    """Copia NUEVA del objeto aplicando la regla a los campos FIJOS de Wialon."""
+    return {
+        key: _apply(
+            "secret" if key in secret_keys else "personal" if key in personal_keys else None, value
+        )
+        for key, value in item.items()
+    }
+
+
+def _redact_people(people: dict[str, Any], label: str) -> dict[str, Any]:
+    """Enmascara cada persona del diccionario {id: persona} y SEUDONIMIZA su nombre.
+
+    El nombre real ("n") se reemplaza por "<label> <id>" (ej. "Conductor 12"): es estable
+    (mismo id -> mismo seudónimo), así que los tests y las relaciones por id siguen valiendo.
+    """
+    return {
+        pid: {
+            **_redact_fixed(p, PERSON_SECRET_KEYS, PERSON_PERSONAL_KEYS),  # pwd y teléfono
+            "n": f"{label} {p.get('id', pid)}",  # seudónimo en lugar del nombre real
+            "jp": _redact_jp(p.get("jp") or {}),  # campos personalizados (cédula, documento...)
+        }
+        for pid, p in people.items()
+    }
+
+
+# Seudónimo por tipo de persona: clave del recurso en Wialon -> etiqueta.
+PEOPLE_LABELS = {"drvrs": "Conductor", "tags": "Pasajero"}
+
+
+def redact_units(units: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Copia de las unidades: sin contraseña del equipo, teléfonos y campos personales enmascarados."""
+    return [
+        {
+            **_redact_fixed(unit, UNIT_SECRET_KEYS, UNIT_PERSONAL_KEYS),
+            **({"flds": _redact_flds(unit["flds"])} if unit.get("flds") else {}),
+        }
+        for unit in units
+    ]
 
 
 def redact_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Copia de los recursos con contraseñas de ``jp`` enmascaradas (conductores y pasajeros).
+    """Copia de los recursos con conductores y pasajeros enmascarados y seudonimizados.
 
-    Pública porque la usa el test ``test_redact_resources_masks_passwords_without_mutating``.
+    Pública porque la usan los tests de enmascarado.
     """
     return [
         # Copia el recurso y reemplaza solo "drvrs"/"tags" cuando existen y no están vacíos.
-        {**res, **{k: _redact_people(res[k]) for k in ("drvrs", "tags") if res.get(k)}}
+        {**res, **{k: _redact_people(res[k], label) for k, label in PEOPLE_LABELS.items() if res.get(k)}}
         for res in resources
     ]
 
@@ -195,7 +287,9 @@ async def explore() -> int:
         resources = await client.search_items("avl_resource", RESOURCE_FLAGS_EXPLORE)
     # Aquí ya se cerró la sesión en Wialon; el resto trabaja con los datos en memoria.
 
-    resources = redact_resources(resources)  # enmascarar ANTES de imprimir o guardar
+    # Enmascarar ANTES de imprimir o guardar: nada sensible llega a consola ni a git.
+    units = redact_units(units)
+    resources = redact_resources(resources)
     _print_units(units)
     _print_resources(resources)
 

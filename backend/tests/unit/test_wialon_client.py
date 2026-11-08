@@ -153,8 +153,10 @@ async def test_network_failure_is_wrapped() -> None:
 
 def test_redact_resources_masks_passwords_without_mutating() -> None:
     """Fixtures: las contraseñas del jp se enmascaran y el objeto original NO se modifica."""
-    # Valor ficticio a propósito: nunca copiar datos reales de la cuenta compartida a los tests.
-    original = [{"id": 1, "tags": {"5": {"n": "Ana", "jp": {"Password": "falso-1", "ID": "1"}}}}]
+    # Valores ficticios a propósito: nunca copiar datos reales de la cuenta compartida a los tests.
+    jp = {"Password": "falso-1", "ID": "0000000099", "Route": "Ruta A"}
+    original = [{"id": 1, "tags": {"5": {"id": 5, "n": "Ana", "jp": jp}}}]
     redacted = redact_resources(original)
-    assert redacted[0]["tags"]["5"]["jp"] == {"Password": "***", "ID": "1"}  # solo el sensible
+    # Secreto -> "***"; documento -> enmascarado parcial; dato no sensible -> intacto.
+    assert redacted[0]["tags"]["5"]["jp"] == {"Password": "***", "ID": "********99", "Route": "Ruta A"}
     assert original[0]["tags"]["5"]["jp"]["Password"] == "falso-1"  # inmutabilidad
