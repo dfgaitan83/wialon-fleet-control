@@ -22,7 +22,7 @@ import { z } from 'zod'
 import { apiClient } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/problem'
 
-import type { AuthUser, LoginCredentials, LoginResult, Permission } from './types'
+import type { AuthService, AuthUser, LoginCredentials, LoginResult, Permission } from './types'
 
 const INVALID_RESPONSE_STATUS = 502 // "Bad Gateway": el servidor respondió algo inesperado
 
@@ -61,7 +61,8 @@ function parseOrThrow<T>(schema: z.ZodType<T>, data: unknown): T {
   return result.data
 }
 
-export const authApi = {
+/** Implementación HTTP REAL del puerto AuthService (adaptador hacia nuestro backend). */
+export const authApi: AuthService = {
   /** Inicia sesión. Errores (401, red...) llegan como ApiError gracias al interceptor. */
   async login(credentials: LoginCredentials): Promise<LoginResult> {
     const { data } = await apiClient.post<unknown>('/auth/login', credentials) // unknown: se valida abajo
@@ -74,4 +75,4 @@ export const authApi = {
     const { data } = await apiClient.get<unknown>('/auth/me')
     return toAuthUser(parseOrThrow(userDtoSchema, data))
   },
-} as const
+}

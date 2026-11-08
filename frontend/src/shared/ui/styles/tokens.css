@@ -1,40 +1,62 @@
 /*
  * Tokens de diseño: ÚNICA fuente de colores, tipografía, espacios y movimiento.
  * Los componentes NUNCA usan colores sueltos (#fff...), solo var(--token).
- * Así cambiar el tema (o el modo oscuro) es editar este archivo y nada más.
  *
- * Dirección visual: "consola de operaciones de flota". Superficies neutras
- * cálidas, tinta profunda y colores de SEÑAL con significado semántico
- * (en movimiento / detenido / sin conexión), nunca decorativos.
+ * ESTRUCTURA EN DOS NIVELES (para sustentar):
+ *  1. --palette-*  : la PALETA OFICIAL OBLIGATORIA de la prueba, valores exactos.
+ *  2. --color-*    : tokens SEMÁNTICOS ("botón principal", "en movimiento"...) que
+ *                    se construyen SOLO a partir de la paleta.
+ *  Los componentes usan únicamente el nivel 2. Si cambia la paleta, se edita el
+ *  nivel 1 y toda la app se actualiza (principio Abierto/Cerrado aplicado al diseño).
+ *
+ * ACCESIBILIDAD (contraste WCAG AA = 4.5:1 para texto normal), medido:
+ *   #EB162C sobre blanco 4.48 -> NO alcanza para texto pequeño: se usa en marca,
+ *                                indicadores, bordes y títulos grandes.
+ *   #A81A2B sobre blanco 7.37 -> botones principales, enlaces y texto rojo.
+ *   #6B6B6B sobre blanco 5.33 -> texto secundario (sobre lavanda da 4.43: se oscurece).
+ *   #1E8C93 sobre blanco 4.02 -> solo elementos gráficos (puntos, iconos: exigen 3:1).
  */
 :root {
-  /* --- Superficies y tinta --- */
-  --color-canvas: oklch(97.5% 0.006 85); /* fondo general, blanco cálido tipo papel */
-  --color-surface: oklch(99.5% 0.003 85); /* tarjetas y tablas */
-  --color-surface-sunken: oklch(94.5% 0.008 85); /* cabecera de tabla, zonas hundidas */
-  --color-border: oklch(88% 0.01 85);
-  --color-border-strong: oklch(78% 0.012 85);
-  --color-ink: oklch(22% 0.02 250); /* texto principal: azul tinta casi negro */
-  --color-ink-muted: oklch(46% 0.018 250); /* texto secundario */
-  --color-ink-inverse: oklch(98% 0.005 85); /* texto sobre fondos oscuros */
+  /* ===== Nivel 1: paleta oficial (valores exactos, no modificar) ===== */
+  --palette-red: #eb162c; /* rojo de marca */
+  --palette-red-dark: #a81a2b; /* rojo profundo */
+  --palette-gray: #6b6b6b; /* gris neutro */
+  --palette-teal: #1e8c93; /* teal */
+  --palette-lavender: #eee8f2; /* lavanda claro */
 
-  /* --- Acción principal (azul señal) --- */
-  --color-accent: oklch(52% 0.17 252);
-  --color-accent-hover: oklch(46% 0.17 252);
-  --color-accent-soft: oklch(94% 0.035 252);
+  /* ===== Nivel 2: tokens semánticos derivados de la paleta ===== */
 
-  /* --- Colores de SEÑAL (estado de vehículos y feedback) --- */
-  --color-success: oklch(55% 0.14 155); /* en movimiento */
-  --color-success-soft: oklch(94% 0.045 155);
-  --color-warning: oklch(64% 0.15 70); /* detenido */
-  --color-warning-soft: oklch(95% 0.05 80);
-  --color-danger: oklch(55% 0.2 27); /* errores, acciones destructivas */
-  --color-danger-hover: oklch(49% 0.2 27);
-  --color-danger-soft: oklch(95% 0.03 27);
-  --color-neutral: oklch(56% 0.015 250); /* sin conexión */
-  --color-neutral-soft: oklch(93% 0.008 250);
+  /* Superficies y tinta */
+  --color-canvas: var(--palette-lavender); /* fondo general de la app */
+  --color-surface: #fff; /* tarjetas, tablas, barras (blanco puro: máximo contraste para texto) */
+  --color-surface-sunken: color-mix(in srgb, var(--palette-lavender) 55%, #fff); /* cabeceras de tabla */
+  --color-border: color-mix(in srgb, var(--palette-gray) 22%, var(--palette-lavender));
+  --color-border-strong: color-mix(in srgb, var(--palette-gray) 45%, var(--palette-lavender));
+  --color-ink: color-mix(in srgb, var(--palette-gray) 30%, #141014); /* texto principal (casi negro, cálido) */
+  --color-ink-muted: var(--palette-gray); /* texto secundario sobre blanco (5.33:1) */
+  --color-ink-subtle: color-mix(in srgb, var(--palette-gray) 82%, #000); /* secundario sobre lavanda (≥ 4.5:1) */
+  --color-ink-inverse: #fff;
 
-  /* --- Tipografía --- */
+  /* Marca y acción principal */
+  --color-brand: var(--palette-red); /* logo, indicador de menú activo, acentos grandes */
+  --color-accent: var(--palette-red-dark); /* botones principales y enlaces (7.37:1) */
+  --color-accent-hover: color-mix(in srgb, var(--palette-red-dark) 82%, #000);
+  --color-accent-soft: color-mix(in srgb, var(--palette-red) 10%, #fff);
+
+  /* Colores de SEÑAL (estado de vehículos y feedback) */
+  --color-success: var(--palette-teal); /* en movimiento: "señal viva" */
+  --color-success-soft: color-mix(in srgb, var(--palette-teal) 14%, #fff);
+  --color-warning: var(--palette-red-dark); /* detenido */
+  --color-warning-soft: color-mix(in srgb, var(--palette-red-dark) 11%, #fff);
+  --color-danger: var(--palette-red); /* errores y acciones destructivas */
+  --color-danger-strong: var(--palette-red-dark); /* texto de error legible (7.37:1) */
+  --color-danger-soft: color-mix(in srgb, var(--palette-red) 9%, #fff);
+  --color-neutral: var(--palette-gray); /* sin conexión */
+  --color-neutral-soft: color-mix(in srgb, var(--palette-gray) 12%, #fff);
+  --color-info: var(--palette-teal); /* sin datos / informativo */
+  --color-info-soft: color-mix(in srgb, var(--palette-lavender) 70%, #fff);
+
+  /* Tipografía */
   --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', monospace; /* datos numéricos */
   --text-xs: 0.75rem;
@@ -42,52 +64,56 @@
   --text-base: 1rem;
   --text-lg: 1.25rem;
   --text-xl: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  --text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4rem); /* títulos de la landing */
 
-  /* --- Espaciado (escala no uniforme: ritmo intencional) --- */
+  /* Espaciado (escala no uniforme: ritmo intencional) */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
   --space-6: 1.5rem;
   --space-8: 2.5rem;
+  --space-12: 4rem;
 
-  /* --- Forma y profundidad (radios distintos según el tamaño del elemento) --- */
+  /* Forma y profundidad (radios distintos según el tamaño del elemento) */
   --radius-pill: 999px; /* badges */
   --radius-control: 0.5rem; /* botones, inputs */
   --radius-surface: 0.875rem; /* tarjetas, tablas */
-  --shadow-surface: 0 1px 0 oklch(0% 0 0 / 0.04), 0 8px 24px -12px oklch(25% 0.03 250 / 0.18);
-  --focus-ring: 0 0 0 3px oklch(70% 0.14 252 / 0.55); /* foco visible para teclado */
+  --shadow-surface: 0 1px 0 rgb(20 16 20 / 0.04), 0 10px 28px -16px rgb(168 26 43 / 0.22);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--palette-teal) 55%, transparent); /* teal: visible sobre rojo y blanco */
 
-  /* --- Movimiento --- */
+  /* Layout */
+  --sidebar-width: 15rem;
+  --topbar-height: 3.75rem;
+
+  /* Movimiento */
   --duration-fast: 120ms;
   --duration-normal: 220ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Modo oscuro: mismas intenciones, valores recalibrados (no un simple "invertir"). */
+/* Modo oscuro: la MISMA paleta sobre fondos oscuros derivados (no se inventan colores nuevos). */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-canvas: oklch(18% 0.015 250);
-    --color-surface: oklch(22% 0.016 250);
-    --color-surface-sunken: oklch(19.5% 0.015 250);
-    --color-border: oklch(32% 0.018 250);
-    --color-border-strong: oklch(42% 0.02 250);
-    --color-ink: oklch(94% 0.008 85);
-    --color-ink-muted: oklch(72% 0.014 250);
-    --color-ink-inverse: oklch(18% 0.015 250);
-    --color-accent: oklch(68% 0.15 252);
-    --color-accent-hover: oklch(74% 0.14 252);
-    --color-accent-soft: oklch(30% 0.06 252);
-    --color-success: oklch(72% 0.15 155);
-    --color-success-soft: oklch(29% 0.05 155);
-    --color-warning: oklch(78% 0.14 75);
-    --color-warning-soft: oklch(31% 0.05 75);
-    --color-danger: oklch(68% 0.18 27);
-    --color-danger-hover: oklch(74% 0.17 27);
-    --color-danger-soft: oklch(30% 0.06 27);
-    --color-neutral: oklch(66% 0.015 250);
-    --color-neutral-soft: oklch(29% 0.012 250);
-    --shadow-surface: 0 1px 0 oklch(100% 0 0 / 0.03), 0 10px 28px -14px oklch(0% 0 0 / 0.6);
+    --color-canvas: color-mix(in srgb, var(--palette-gray) 22%, #0e0b10);
+    --color-surface: color-mix(in srgb, var(--palette-gray) 18%, #17131a);
+    --color-surface-sunken: color-mix(in srgb, var(--palette-gray) 14%, #120f14);
+    --color-border: color-mix(in srgb, var(--palette-gray) 45%, #17131a);
+    --color-border-strong: color-mix(in srgb, var(--palette-gray) 70%, #17131a);
+    --color-ink: var(--palette-lavender);
+    --color-ink-muted: color-mix(in srgb, var(--palette-lavender) 72%, var(--palette-gray));
+    --color-ink-subtle: color-mix(in srgb, var(--palette-lavender) 72%, var(--palette-gray));
+    --color-accent: var(--palette-red); /* sobre fondo oscuro el rojo brillante sí contrasta */
+    --color-accent-hover: color-mix(in srgb, var(--palette-red) 85%, #fff);
+    --color-accent-soft: color-mix(in srgb, var(--palette-red) 18%, #17131a);
+    --color-success-soft: color-mix(in srgb, var(--palette-teal) 26%, #17131a);
+    --color-warning: color-mix(in srgb, var(--palette-red) 70%, #fff);
+    --color-warning-soft: color-mix(in srgb, var(--palette-red-dark) 30%, #17131a);
+    --color-danger-strong: color-mix(in srgb, var(--palette-red) 65%, #fff);
+    --color-danger-soft: color-mix(in srgb, var(--palette-red) 18%, #17131a);
+    --color-neutral-soft: color-mix(in srgb, var(--palette-gray) 30%, #17131a);
+    --color-info-soft: color-mix(in srgb, var(--palette-lavender) 12%, #17131a);
+    --shadow-surface: 0 1px 0 rgb(255 255 255 / 0.03), 0 10px 28px -14px rgb(0 0 0 / 0.6);
   }
 }
 

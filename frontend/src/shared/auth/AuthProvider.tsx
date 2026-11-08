@@ -6,16 +6,26 @@
  *    valida con GET /auth/me. Si es válido -> "authenticated"; si no -> "anonymous".
  * 2. login(): POST /auth/login -> guarda token -> "authenticated".
  * 3. logout() o cualquier 401 del backend -> borra token -> "anonymous".
+ *
+ * SOLID — Inversión de dependencias: este componente NO importa authApi. Recibe
+ * un `service` que cumple el puerto AuthService (ver types.ts). Quién lo crea
+ * (HTTP real o demo) lo decide la raíz de composición: app/providers.tsx.
  */
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 
 import { setUnauthorizedHandler } from '@/shared/api/client'
 
 import { AuthContext } from './AuthContext'
-import { authApi } from './authApi'
 import { userHasPermission } from './permissions'
 import { tokenStorage } from './tokenStorage'
-import type { AuthContextValue, AuthStatus, AuthUser, LoginCredentials, Permission } from './types'
+import type {
+  AuthContextValue,
+  AuthService,
+  AuthStatus,
+  AuthUser,
+  LoginCredentials,
+  Permission,
+} from './types'
 
 interface AuthState {
   readonly status: AuthStatus
@@ -25,10 +35,11 @@ interface AuthState {
 const ANONYMOUS: AuthState = { status: 'anonymous', user: null } // objeto constante reutilizable
 
 interface AuthProviderProps {
+  readonly service: AuthService // dependencia INYECTADA (abstracción, no implementación)
   readonly children: ReactNode
 }
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ service, children }: AuthProviderProps) {
   // Inicialización perezosa: se decide UNA vez, al montar, si hay que validar un token.
   const [state, setState] = useState<AuthState>(() =>
     tokenStorage.get() ? { status: 'checking', user: null } : ANONYMOUS,
@@ -48,7 +59,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     if (!isChecking) return
     let cancelled = false // evita actualizar estado si el componente se desmontó
-    authApi
+    service
       .me()
       .then((user) => {
         if (!cancelled) setState({ status: 'authenticated', user })
@@ -60,14 +71,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       cancelled = true // React StrictMode monta/desmonta dos veces en desarrollo
     }
-  }, [isChecking, logout])
+  }, [isChecking, logout, service])
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    // Si falla, el ApiError se propaga al formulario de login para mostrar el mensaje.
-    const { accessToken, user } = await authApi.login(credentials)
-    tokenStorage.set(accessToken)
-    setState({ status: 'authenticated', user })
-  }, [])
+  const login = useCallback(
+    async (credentials: LoginCredentials) => {
+      // Si falla, el ApiError se propaga al formulario de login para mostrar el mensaje.
+      const { accessToken, user } = await service.login(credentials)
+      tokenStorage.set(accessToken)
+      setState({ status: 'authenticated', user })
+    },
+    [service],
+  )
 
   const hasPermission = useCallback(
     (permission: Permission) => userHasPermission(state.user, permission),

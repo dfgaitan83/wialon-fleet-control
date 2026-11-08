@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/shared/api/client'
 import { type MockHandler, mockApi } from '@/test/mockAdapter'
 
+import { authApi } from './authApi'
 import { AuthProvider } from './AuthProvider'
 import { RequireAuth } from './RequireAuth'
 import { RequirePermission } from './RequirePermission'
@@ -37,7 +38,8 @@ function SessionProbe() {
 function renderApp(initialPath = '/privada') {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
-      <AuthProvider>
+      {/* Se inyecta el servicio HTTP REAL: la red la simula mockApi. */}
+      <AuthProvider service={authApi}>
         <Routes>
           <Route path="/login" element={<p>pantalla de login</p>} />
           <Route element={<RequireAuth />}>
