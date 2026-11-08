@@ -16,11 +16,15 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Alias "@/..." -> "src/..." (igual que en vite.config.ts) */
+    "paths": { "@/*": ["./src/*"] },
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "strict": true
   },
   "include": ["src"]
 }
