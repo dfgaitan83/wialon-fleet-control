@@ -1,0 +1,42 @@
+# ===== Secretos (NUNCA subir) =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+*token*.txt
+
+# ===== Python / backend =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# ===== Node / frontend =====
+node_modules/
+frontend/dist/
+*.local
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ===== Editor / SO =====
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Caché de Vite
+.vite/
+Prueba_Gps/
