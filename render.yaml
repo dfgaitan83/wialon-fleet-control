@@ -1,0 +1,46 @@
+# =============================================================================
+# Blueprint de Render (infraestructura como código, DEP-02).
+# En Render: New + -> Blueprint -> elegir este repositorio. Render lee este
+# archivo, crea el servicio y PIDE los valores marcados con "sync: false"
+# (secretos: nunca se escriben aquí).
+# =============================================================================
+services:
+  - type: web
+    name: wialon-fleet-api
+    runtime: docker
+    plan: free
+    # Ohio: misma región que el proyecto Neon (AWS us-east-2) -> menor latencia BD <-> API.
+    region: ohio
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true # cada push a main redespliega
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      # --- Wialon ---
+      - key: WIALON_TOKEN
+        sync: false # el token entregado por el reclutador
+      - key: WIALON_BASE_URL
+        value: https://hst-api.wialon.com/wialon/ajax.html
+      - key: WIALON_TIMEOUT_SECONDS
+        value: "10"
+      # --- Base de datos (Neon) ---
+      - key: DATABASE_URL
+        sync: false # connection string POOLED de Neon, tal cual
+      # --- Autenticación ---
+      - key: JWT_SECRET
+        generateValue: true # Render genera un secreto aleatorio de 256 bits
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false # robusta, generada con un gestor de contraseñas
+      # --- HTTP ---
+      - key: CORS_ORIGINS
+        sync: false # URL exacta del frontend, ej. https://tu-app.vercel.app (varias: separadas por comas)
+      # Swagger activo en producción para la revisión del reclutador (decisión documentada en el README).
+      - key: DOCS_ENABLED
+        value: "true"
