@@ -1,0 +1,41 @@
+.audit-card {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.audit-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.audit-toolbar .ui-field__input {
+  flex: 1 1 14rem;
+}
+
+.audit-toolbar .audit-toolbar__category {
+  flex: 0 1 13rem;
+}
+
+.audit-muted {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.audit-detail {
+  display: inline-block;
+  max-inline-size: 28rem;
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.audit-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
