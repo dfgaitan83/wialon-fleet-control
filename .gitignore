@@ -17,6 +17,10 @@ venv/
 .mypy_cache/
 .coverage
 htmlcov/
+# BD SQLite local de desarrollo: contiene usuarios y hashes de contraseñas.
+*.db
+*.db-journal
+*.sqlite3
 *.egg-info/
 dist/
 build/
