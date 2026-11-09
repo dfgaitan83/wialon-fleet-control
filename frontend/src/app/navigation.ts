@@ -13,7 +13,9 @@
  */
 import type { ComponentType } from 'react'
 
+import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { UsersPage } from '@/features/users/UsersPage'
+import { VehiclesPage } from '@/features/vehicles/VehiclesPage'
 import type { Permission } from '@/shared/auth/types'
 
 import {
@@ -38,8 +40,8 @@ export interface NavItem {
 }
 
 export const APP_NAVIGATION: readonly NavItem[] = [
-  { segment: '', label: 'Resumen', permission: 'dashboard:read', icon: DashboardIcon, milestone: 'M7' },
-  { segment: 'vehicles', label: 'Vehículos', permission: 'vehicles:read', icon: VehicleIcon, milestone: 'M7' },
+  { segment: '', label: 'Resumen', permission: 'dashboard:read', icon: DashboardIcon, milestone: 'M7', page: DashboardPage },
+  { segment: 'vehicles', label: 'Vehículos', permission: 'vehicles:read', icon: VehicleIcon, milestone: 'M7', page: VehiclesPage },
   { segment: 'drivers', label: 'Conductores', permission: 'drivers:read', icon: DriverIcon, milestone: 'M7' },
   { segment: 'passengers', label: 'Pasajeros', permission: 'passengers:read', icon: PassengersIcon, milestone: 'M7' },
   { segment: 'history', label: 'Historial', permission: 'history:read', icon: HistoryIcon, milestone: 'M7' },

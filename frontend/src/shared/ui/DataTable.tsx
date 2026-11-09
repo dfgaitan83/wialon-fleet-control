@@ -38,6 +38,7 @@ interface DataTableProps<T> {
   readonly isLoading?: boolean
   readonly skeletonRows?: number // cuántas filas esqueleto mostrar mientras carga
   readonly emptyState?: ReactNode // qué mostrar si no hay filas
+  readonly selectedRowId?: string | null // fila resaltada (p. ej. sincronizada con el mapa)
 }
 
 const DEFAULT_SKELETON_ROWS = 5
@@ -58,6 +59,7 @@ export function DataTable<T>({
   isLoading = false,
   skeletonRows = DEFAULT_SKELETON_ROWS,
   emptyState = <EmptyState title="Sin resultados" description="No hay datos para mostrar." />,
+  selectedRowId = null,
 }: DataTableProps<T>) {
   const isEmpty = !isLoading && rows.length === 0
 
@@ -97,7 +99,11 @@ export function DataTable<T>({
 
           {!isLoading &&
             rows.map((row) => (
-              <tr key={getRowId(row)}>
+              <tr
+                key={getRowId(row)}
+                className={getRowId(row) === selectedRowId ? 'ui-table__row--selected' : undefined}
+                aria-selected={selectedRowId === null ? undefined : getRowId(row) === selectedRowId}
+              >
                 {columns.map((column) => (
                   <td key={column.id} className={cellClassName(column)}>
                     {column.cell(row)}

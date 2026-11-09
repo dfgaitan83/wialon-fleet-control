@@ -78,7 +78,7 @@ describe('StatusBadge / VehicleStatusBadge', () => {
     )
 
     expect(screen.getByText('En movimiento')).toHaveClass('ui-badge--pulse')
-    expect(screen.getByText('Sin conexión')).not.toHaveClass('ui-badge--pulse')
+    expect(screen.getByText('Sin señal')).not.toHaveClass('ui-badge--pulse')
   })
 })
 

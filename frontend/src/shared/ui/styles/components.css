@@ -249,3 +249,11 @@
   color: var(--color-ink-muted);
   font: var(--text-sm) var(--font-sans);
 }
+
+/* Fila seleccionada (sincronizada con el mapa): borde rojo de marca + fondo lavanda. */
+.ui-table__row--selected td {
+  background: var(--color-surface-sunken);
+}
+.ui-table__row--selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--palette-red);
+}
