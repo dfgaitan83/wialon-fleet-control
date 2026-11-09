@@ -24,6 +24,7 @@ from app.domain.fleet import (
 )
 from app.infrastructure.wialon.raw_models import (
     RawDriver,
+    RawMessage,
     RawPassenger,
     RawPosition,
     RawResource,
@@ -47,6 +48,20 @@ def to_position(raw: RawPosition | None, measure_units: int) -> Position | None:
         recorded_at=datetime.fromtimestamp(raw.t, tz=UTC),
         altitude_m=raw.z,
         satellites=raw.sc,
+    )
+
+
+def message_to_position(raw: RawMessage, measure_units: int) -> Position:
+    """Mensaje del historial -> Position (mismas reglas de velocidad que la posición actual)."""
+    speed = raw.pos.s * KMH_PER_MPH if measure_units in MPH_MEASURE_UNITS else float(raw.pos.s)
+    return Position(
+        latitude=raw.pos.y,
+        longitude=raw.pos.x,
+        speed_kmh=round(speed, 1),
+        heading_deg=raw.pos.c,
+        recorded_at=datetime.fromtimestamp(raw.t, tz=UTC),
+        altitude_m=raw.pos.z,
+        satellites=raw.pos.sc,
     )
 
 

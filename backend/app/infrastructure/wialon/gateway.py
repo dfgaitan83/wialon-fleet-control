@@ -16,8 +16,8 @@ from datetime import datetime
 
 from cachetools import TTLCache
 
-from app.application.errors import ProviderUnavailable
-from app.domain.fleet import FleetSnapshot, Person, PersonChanges, PersonKind
+from app.application.errors import NotFound, ProviderUnavailable
+from app.domain.fleet import FleetSnapshot, Person, PersonChanges, PersonKind, Position
 from app.infrastructure.wialon.client import (
     RESOURCE_FLAG_BASE,
     RESOURCE_FLAG_DRIVERS,
@@ -27,10 +27,14 @@ from app.infrastructure.wialon.client import (
     UNIT_FLAG_LAST_MESSAGE_POSITION,
     WialonClient,
 )
-from app.infrastructure.wialon.errors import WialonError
-from app.infrastructure.wialon.mappers import build_snapshot
+from app.infrastructure.wialon.errors import WialonError, WialonNotFound
+from app.infrastructure.wialon.mappers import build_snapshot, message_to_position
 from app.infrastructure.wialon.people_writer import WialonPeopleWriter
-from app.infrastructure.wialon.raw_models import parse_resources, parse_units
+from app.infrastructure.wialon.raw_models import (
+    parse_messages,
+    parse_resources,
+    parse_units,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +43,11 @@ SNAPSHOT_TTL_SECONDS = 15.0
 UNIT_FLAGS_FLEET = UNIT_FLAG_BASE + UNIT_FLAG_CUSTOM_FIELDS + UNIT_FLAG_LAST_MESSAGE_POSITION  # 1033
 RESOURCE_FLAGS_PEOPLE = RESOURCE_FLAG_BASE + RESOURCE_FLAG_DRIVERS + RESOURCE_FLAG_TAGS  # 2097409
 _KEY = "snapshot"
+# messages/load_interval: flags=1 -> solo mensajes de DATOS; máscara 0xFF01 = filtra por tipo.
+MESSAGE_FLAGS_DATA = 1
+MESSAGE_FLAGS_MASK = 0xFF01
+# Tope de mensajes que Wialon carga por consulta (7 días de un vehículo activo caben).
+MESSAGE_LOAD_LIMIT = 50_000
 
 
 class WialonFleetGateway:
@@ -93,6 +102,33 @@ class WialonFleetGateway:
         async with self._lock:
             await self._writer.set_binding(kind, resource_id, person_id, unit_id, bind=bind)
             self.invalidate()
+
+    # --- Historial (RF-24) ---
+    async def track(self, vehicle_id: int, start: datetime, end: datetime) -> list[Position]:
+        """Posiciones del vehículo en el rango. Usa el candado: el "cargador de mensajes"
+        de Wialon es UNO por sesión; dos consultas simultáneas se pisarían."""
+        async with self._lock:
+            try:
+                unit = await self._client.search_item(vehicle_id, UNIT_FLAG_BASE)  # mu + existencia
+                result = await self._client.call(
+                    "messages/load_interval",
+                    {
+                        "itemId": vehicle_id,
+                        "timeFrom": int(start.timestamp()),
+                        "timeTo": int(end.timestamp()),
+                        "flags": MESSAGE_FLAGS_DATA,
+                        "flagsMask": MESSAGE_FLAGS_MASK,
+                        "loadCount": MESSAGE_LOAD_LIMIT,
+                    },
+                )
+                await self._client.call("messages/unload", {})  # libera la memoria de la sesión
+            except WialonNotFound as exc:
+                raise NotFound("El vehículo no existe o no es visible para esta cuenta.") from exc
+            except WialonError as exc:
+                logger.warning("No se pudo leer el historial de Wialon: código %s", exc.code)
+                raise ProviderUnavailable from exc
+        measure_units = int(unit.get("mu", 0))
+        return [message_to_position(m, measure_units) for m in parse_messages(result.get("messages", []))]
 
     async def _fetch(self) -> FleetSnapshot:
         try:

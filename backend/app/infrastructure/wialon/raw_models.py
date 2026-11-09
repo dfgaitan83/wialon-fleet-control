@@ -172,3 +172,39 @@ def parse_units(items: Iterable[Any]) -> list[RawUnit]:
 def parse_resources(items: Iterable[Any]) -> list[RawResource]:
     """Valida la respuesta de ``core/search_items`` para ``avl_resource``."""
     return _parse_many(RawResource, items, "recurso")
+
+
+# ---------------------------------------------------------------------------
+# Mensajes del historial (messages/load_interval, RF-24)
+# ---------------------------------------------------------------------------
+class RawMessagePosition(_RawModel):
+    """Bloque ``pos`` de un MENSAJE: igual que el de la unidad, pero la hora va fuera (``t``)."""
+
+    x: float = Field(ge=-180, le=180)
+    y: float = Field(ge=-90, le=90)
+    s: int = Field(ge=0)
+    c: int = Field(ge=0, le=360)
+    z: float | None = None
+    sc: int = 0
+
+
+class RawMessage(_RawModel):
+    """Mensaje de datos. Lista blanca: ``p`` (parámetros/sensores crudos del equipo) se descarta."""
+
+    t: int = Field(ge=0)  # hora del mensaje, Unix UTC
+    pos: RawMessagePosition
+
+
+def parse_messages(items: Iterable[Any]) -> list[RawMessage]:
+    """Mensajes sin posición o con posición inválida se descartan EN SILENCIO.
+
+    A diferencia de unidades/recursos no se registra cada uno: un recorrido trae
+    miles de mensajes y los de solo sensores (sin ``pos``) son normales, no errores.
+    """
+    valid: list[RawMessage] = []
+    for item in items:
+        try:
+            valid.append(RawMessage.model_validate(item))
+        except ValidationError:
+            continue
+    return valid
