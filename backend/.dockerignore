@@ -1,0 +1,17 @@
+# Nada de secretos, BD locales, entornos ni artefactos dentro de la imagen.
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tests/
+README.md
+Dockerfile
+.dockerignore

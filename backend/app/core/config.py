@@ -11,13 +11,14 @@ producción se exigen reglas extra (cookies Secure, PostgreSQL, sin docs por
 defecto) y el servidor se niega a arrancar si no se cumplen (SEG-05).
 """
 
+import json
 from functools import lru_cache  # para crear Settings una sola vez
 from pathlib import Path  # rutas independientes del sistema operativo
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Ruta absoluta a backend/.env calculada desde ESTE archivo (backend/app/core/config.py):
 # parents[0] = backend/app/core, parents[1] = backend/app, parents[2] = backend.
@@ -102,7 +103,9 @@ class Settings(BaseSettings):
 
     # --- HTTP ---
     # Orígenes que pueden llamar al backend desde el navegador (5173 = puerto de Vite).
-    cors_origins: list[str] = ["http://localhost:5173"]
+    # NoDecode: se acepta "https://a.app,https://b.app" además de JSON '["https://a.app"]'
+    # (más fácil de escribir sin errores en el panel de Render).
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     # Swagger/OpenAPI. En producción queda apagado salvo que se active a propósito (SEG-05).
     docs_enabled: bool | None = None
 
@@ -110,6 +113,16 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_database_url(cls, value: object) -> object:
         return _normalize_secret_url(value)
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, value: object) -> object:
+        """Lista JSON o separada por comas; sin espacios ni "/" final (el navegador no lo envía)."""
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        items = json.loads(text) if text.startswith("[") else text.split(",")
+        return [str(item).strip().rstrip("/") for item in items if str(item).strip()]
 
     @model_validator(mode="after")
     def _check_security_rules(self) -> Self:

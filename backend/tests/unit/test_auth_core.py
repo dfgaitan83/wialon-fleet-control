@@ -109,6 +109,26 @@ def test_insecure_configuration_refuses_to_start(overrides: dict[str, object]) -
         _settings(**overrides)
 
 
+@pytest.mark.parametrize(
+    "raw",
+    [
+        '["https://flota.vercel.app"]',  # JSON
+        "https://flota.vercel.app",  # una sola URL
+        " https://flota.vercel.app/ ",  # espacios y "/" final (error típico al pegar)
+    ],
+)
+def test_cors_origins_accept_json_or_comma_separated(raw: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CORS_ORIGINS", raw)
+
+    assert _settings().cors_origins == ["https://flota.vercel.app"]
+
+
+def test_cors_origins_accept_several_comma_separated(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CORS_ORIGINS", "https://a.vercel.app, http://localhost:5173")
+
+    assert _settings().cors_origins == ["https://a.vercel.app", "http://localhost:5173"]
+
+
 def test_docs_are_off_in_production_unless_enabled() -> None:
     prod = {"environment": "production", "database_url": SecretStr("postgresql://u:p@h/db")}
 
