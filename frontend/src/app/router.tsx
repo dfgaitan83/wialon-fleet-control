@@ -15,6 +15,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { ChangePasswordPage } from '@/features/auth/ChangePasswordPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { LandingPage } from '@/features/landing/LandingPage'
+import { VehicleDetailPage } from '@/features/vehicles/VehicleDetailPage'
 import { RequireAuth } from '@/shared/auth/RequireAuth'
 import { RequirePermission } from '@/shared/auth/RequirePermission'
 import { CHANGE_PASSWORD_PATH, LOGIN_PATH } from '@/shared/auth/types'
@@ -54,7 +55,23 @@ export const routes: RouteObject[] = [
       {
         path: APP_BASE_PATH,
         element: <RequireAuth />, // sin sesión -> /login (recordando a dónde se quería ir)
-        children: [{ element: <AppLayout />, children: APP_NAVIGATION.map(toModuleRoute) }],
+        children: [
+          {
+            element: <AppLayout />,
+            children: [
+              ...APP_NAVIGATION.map(toModuleRoute),
+              {
+                // RF-12: detalle (no es una entrada del menú, pero exige el mismo permiso)
+                path: 'vehicles/:vehicleId',
+                element: (
+                  <RequirePermission permission="vehicles:read">
+                    <VehicleDetailPage />
+                  </RequirePermission>
+                ),
+              },
+            ],
+          },
+        ],
       },
       {
         // RF-06: cambio de contraseña (obligatorio con contraseña temporal). Requiere sesión,

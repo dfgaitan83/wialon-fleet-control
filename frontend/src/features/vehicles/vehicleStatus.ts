@@ -21,6 +21,6 @@ interface StatusPresentation {
 export const VEHICLE_STATUS_PRESENTATION: Readonly<Record<VehicleStatus, StatusPresentation>> = {
   moving: { label: 'En movimiento', tone: 'success', pulse: true },
   stopped: { label: 'Detenido', tone: 'warning', pulse: false },
-  offline: { label: 'Sin conexión', tone: 'neutral', pulse: false },
+  offline: { label: 'Sin señal', tone: 'neutral', pulse: false }, // no reporta hace > 30 min o nunca
   unknown: { label: 'Sin datos', tone: 'info', pulse: false }, // ej. unidad que nunca reportó posición
 }

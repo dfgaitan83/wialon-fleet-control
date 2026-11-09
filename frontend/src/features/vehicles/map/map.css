@@ -1,0 +1,68 @@
+/* Mapa de flota: alto fijo con mínimo para móvil; marcadores por estado (paleta). */
+.fleet-map {
+  inline-size: 100%;
+  block-size: clamp(20rem, 60vh, 38rem);
+  border-radius: var(--radius-surface);
+  border: 1px solid var(--color-border);
+  z-index: 0; /* el mapa no tapa menús ni diálogos */
+}
+
+.fleet-map--compact {
+  block-size: 16rem;
+}
+
+.fleet-marker {
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+
+.fleet-marker--moving {
+  background: var(--color-success); /* teal: señal viva */
+}
+
+.fleet-marker--stopped {
+  background: var(--palette-red-dark); /* detenido: rojo profundo de la paleta */
+}
+
+.fleet-marker--offline,
+.fleet-marker--unknown {
+  background: var(--palette-gray);
+}
+
+.fleet-marker--selected {
+  outline: 3px solid var(--palette-red);
+  outline-offset: 2px;
+}
+
+.fleet-popup {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 12rem;
+  font: var(--text-sm) / 1.4 var(--font-sans);
+}
+
+.fleet-popup p {
+  margin: 0;
+}
+
+.fleet-popup__title {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.fleet-popup__status {
+  color: var(--color-ink-muted);
+}
+
+.fleet-popup__link {
+  justify-self: start;
+  margin-block-start: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--palette-red-dark); /* #A81A2B: 7.2:1 sobre blanco */
+  font: 600 var(--text-sm) var(--font-sans);
+  text-decoration: underline;
+  cursor: pointer;
+}
