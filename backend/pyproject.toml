@@ -17,7 +17,7 @@ dependencies = [
     "pydantic-settings>=2.16.2",
     "pyjwt>=2.15.1",
     "slowapi>=0.1.10",
-    "sqlalchemy>=2.1.8",
+    "sqlalchemy[asyncio]>=2.1.8",
     "structlog>=26.1.0",
     "tenacity>=9.2.1",
     "uvicorn[standard]>=0.54.0",
@@ -28,6 +28,7 @@ package = false
 
 [dependency-groups]
 dev = [
+    "aiosqlite>=0.22.1",
     "import-linter>=2.16",
     "pip-audit>=2.10.1",
     "pytest>=9.2.0",
@@ -36,6 +37,12 @@ dev = [
     "respx>=0.23.1",
     "ruff>=0.17.4",
 ]
+
+[tool.coverage.run]
+# SQLAlchemy asíncrono ejecuta parte del código dentro de greenlets: sin esto,
+# coverage pierde el rastro tras cada consulta y marca como "no ejecutadas"
+# líneas que los tests SÍ recorren (auth_service aparecía al 57 %).
+concurrency = ["greenlet", "thread"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
