@@ -36,10 +36,20 @@ Decisiones de diseño
    sesión nueva. Ver ``ensure_session``.
 4. **Reintento único ante sesión expirada** (error 1), para no entrar en bucles.
 5. **Flags en decimal**, con su equivalente hexadecimal en el comentario.
-6. **Sin caché**: la cuenta demoApps es compartida y sus datos cambian.
+6. **Sin caché en el cliente**: la cuenta demoApps es compartida y sus datos cambian.
+   La caché corta (TTL 15 s, M4) vive en el gateway, que decide qué datos cachear.
 7. **Timestamps en Unix UTC**: la conversión a America/Bogota la hace el frontend.
 8. **Nunca filtrar secretos**: ``token/login`` devuelve el token EN CLARO (``th``);
    se elimina con ``SENSITIVE_LOGIN_KEYS`` antes de exponer la respuesta.
+9. **Timeout de 10 s** por petición (``WIALON_TIMEOUT_SECONDS``): si Wialon no
+   responde, se lanza ``WialonUnavailable`` en vez de colgar al usuario.
+10. **tenacity solo para errores de red seguros** (``RETRYABLE_NETWORK_ERRORS``):
+    hasta 3 intentos con espera exponencial cuando la conexión ni siquiera se
+    abrió. Un ``ReadTimeout`` NO se reintenta: la petición pudo llegar a Wialon y
+    repetirla duplicaría una escritura. El error 1 tiene su propio re-login (punto 4).
+11. **Errores tipados** (``errors.py``): cada código se traduce a una subclase
+    (``WialonSessionError``, ``WialonAccessDenied``, ``WialonNotFound``,
+    ``WialonUnavailable``) para que el gateway responda 401/403/404/503 por tipo.
 
 Documentación oficial: https://sdk.wialon.com/wiki/en/sidebar/remoteapi/apiref/apiref
 """
@@ -51,13 +61,24 @@ from dataclasses import dataclass  # para la sesión inmutable (frozen=True)
 from typing import Any, Self  # Self = tipo de retorno de __aenter__
 
 import httpx  # cliente HTTP asíncrono (no bloquea el event loop de FastAPI)
+from tenacity import (  # reintentos declarativos (solo para errores de red, ver _post)
+    AsyncRetrying,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 # Errores y sus códigos viven en errors.py (un módulo = una responsabilidad).
 from app.infrastructure.wialon.errors import (
+    ERROR_INVALID_RESULT,
     ERROR_INVALID_SESSION,
     ERROR_NETWORK,
     WIALON_ERRORS,
+    WialonAccessDenied,
     WialonError,
+    WialonNotFound,
+    WialonUnavailable,
+    error_from_code,
 )
 
 # Logger con el nombre del módulo: permite filtrar los logs de Wialon por separado.
@@ -98,6 +119,21 @@ RESOURCE_FLAGS_EXPLORE = (  # todos los bloques de recursos que usa M1
     + RESOURCE_FLAG_TAGS
     + RESOURCE_FLAG_TAG_GROUPS
 )  # = 10518785
+
+# ---------------------------------------------------------------------------
+# Reintentos de red (tenacity). SOLO errores en los que la petición NUNCA llegó
+# a Wialon (no se abrió la conexión): reintentarlos es seguro incluso para
+# escrituras. ReadTimeout / RemoteProtocolError quedan FUERA a propósito: Wialon
+# pudo procesar la petición y reintentar duplicaría, p. ej., una asignación.
+# Peor caso: 3 x 10 s de ConnectTimeout + 1,5 s de esperas ~ 31,5 s.
+# ---------------------------------------------------------------------------
+RETRYABLE_NETWORK_ERRORS: tuple[type[httpx.TransportError], ...] = (
+    httpx.ConnectError,  # DNS caído, conexión rechazada, red inaccesible
+    httpx.ConnectTimeout,  # no se logró abrir la conexión a tiempo
+)
+NETWORK_MAX_ATTEMPTS = 3  # intento inicial + 2 reintentos
+NETWORK_RETRY_WAIT = 0.5  # base de la espera exponencial en segundos (0.5 s, 1 s...)
+NETWORK_RETRY_MAX_WAIT = 2.0  # tope de espera entre intentos en segundos
 
 # Campos de la respuesta de login que NUNCA deben salir de este cliente.
 # frozenset = conjunto inmutable: nadie puede quitar una clave por error en tiempo de ejecución.
@@ -142,11 +178,15 @@ class WialonClient:
         self,
         base_url: str,  # URL de ajax.html (WIALON_BASE_URL en .env)
         token: str,  # token de acceso (WIALON_TOKEN); nunca se loguea
-        timeout_seconds: float = 15.0,  # máximo por petición: no colgar si Wialon no responde
+        # Máximo por fase de la petición (conectar, enviar, leer): no colgar si Wialon no responde.
+        timeout_seconds: float = 10.0,
         http_client: httpx.AsyncClient | None = None,  # inyección para tests (MockTransport)
+        # Base de la espera exponencial entre reintentos de red; los tests pasan 0 para no dormir.
+        network_retry_wait: float = NETWORK_RETRY_WAIT,
     ) -> None:
         self._base_url = base_url  # "_" = atributo privado: solo lo usa esta clase
         self._token = token
+        self._network_retry_wait = network_retry_wait
         # Un solo AsyncClient reutiliza conexiones TCP/TLS (keep-alive) -> peticiones más rápidas.
         # Si el test inyecta uno simulado, se usa ese y no se llama a Wialon real.
         self._http = http_client or httpx.AsyncClient(timeout=timeout_seconds)
@@ -177,25 +217,59 @@ class WialonClient:
     async def _request(self, svc: str, params: dict[str, Any], sid: str | None = None) -> Any:
         """Envía UNA petición a Wialon y traduce cualquier fallo a ``WialonError``.
 
-        No renueva sesión ni reintenta: esa lógica vive en ``call``, así este
-        método queda simple y lo pueden usar también login y logout.
+        No renueva sesión (esa lógica vive en ``call``), así este método queda
+        simple y lo pueden usar también login y logout. Los únicos reintentos que
+        hace son los de red segura, dentro de ``_post``.
         """
         # Cuerpo del formulario: el servicio y sus parámetros serializados como JSON.
         data = {"svc": svc, "params": json.dumps(params)}
         if sid:  # login no lleva sid (todavía no existe); el resto de servicios sí
             data["sid"] = sid
+        response = await self._post(svc, data)
+        return self._parse(svc, response)
+
+    async def _post(self, svc: str, data: dict[str, str]) -> httpx.Response:
+        """POST de formulario con reintentos (tenacity) SOLO ante errores de red seguros.
+
+        Se reintenta únicamente ``RETRYABLE_NETWORK_ERRORS``: fallos en los que la
+        petición NUNCA llegó a Wialon. Un ``ReadTimeout`` NO se reintenta: Wialon pudo
+        haber procesado la petición y, si era una escritura, se duplicaría.
+        """
+        retrying = AsyncRetrying(
+            retry=retry_if_exception_type(RETRYABLE_NETWORK_ERRORS),
+            stop=stop_after_attempt(NETWORK_MAX_ATTEMPTS),
+            # Espera exponencial: 0.5 s, 1 s... (tope 2 s) -> no saturar a Wialon si se está recuperando.
+            wait=wait_exponential(multiplier=self._network_retry_wait, max=NETWORK_RETRY_MAX_WAIT),
+            before_sleep=lambda state: logger.warning(  # se registra el servicio, NUNCA los datos
+                "Error de red con Wialon svc=%s; reintento %s/%s",
+                svc,
+                state.attempt_number,
+                NETWORK_MAX_ATTEMPTS - 1,
+            ),
+            reraise=True,  # al agotar intentos sube el error ORIGINAL de httpx (no RetryError)
+        )
         try:
-            # POST application/x-www-form-urlencoded al endpoint único de Wialon.
-            response = await self._http.post(self._base_url, data=data)
-            response.raise_for_status()  # convierte HTTP 4xx/5xx en excepción
-            payload = response.json()  # Wialon siempre debería responder JSON
+            async for attempt in retrying:
+                with attempt:
+                    # POST application/x-www-form-urlencoded al endpoint único de Wialon.
+                    response = await self._http.post(self._base_url, data=data)
+                    response.raise_for_status()  # convierte HTTP 4xx/5xx en excepción
+            return response
         except httpx.HTTPError as exc:
             # Red caída, timeout, DNS, HTTP 5xx... Se registra el servicio, NUNCA los datos.
             logger.error("Fallo HTTP llamando a Wialon svc=%s: %s", svc, exc)
-            raise WialonError(ERROR_NETWORK, f"No se pudo contactar con Wialon: {exc}") from exc
+            raise WialonUnavailable(ERROR_NETWORK, f"No se pudo contactar con Wialon: {exc}") from exc
+
+    @staticmethod
+    def _parse(svc: str, response: httpx.Response) -> Any:
+        """Convierte la respuesta HTTP en datos o en la subclase de ``WialonError`` adecuada."""
+        try:
+            payload = response.json()  # Wialon siempre debería responder JSON
         except ValueError as exc:
             # El cuerpo no era JSON (ej. página HTML de error de un proxy).
-            raise WialonError(3, "Wialon devolvió una respuesta que no es JSON") from exc
+            raise WialonUnavailable(
+                ERROR_INVALID_RESULT, "Wialon devolvió una respuesta que no es JSON"
+            ) from exc
 
         # Wialon reporta errores con HTTP 200 + {"error": N}; "error": 0 significa éxito.
         if isinstance(payload, dict) and payload.get("error", 0) != 0:
@@ -203,7 +277,7 @@ class WialonClient:
             # "reason" lo envía Wialon a veces (ej. WRONG_TOKEN_LENGTH); si no, usamos la tabla.
             reason = payload.get("reason") or WIALON_ERRORS.get(code, "Error no documentado")
             logger.warning("Wialon devolvió error svc=%s code=%s", svc, code)
-            raise WialonError(code, reason)
+            raise error_from_code(code, reason)  # subclase según el código (ver errors.py)
         return payload  # respuesta válida (dict o list según el servicio)
 
     # ------------------------------------------------------------------
@@ -289,6 +363,21 @@ class WialonClient:
         }
         result = await self.call("core/search_items", params)
         return list(result.get("items", []))  # lista nueva; [] si Wialon no devuelve "items"
+
+    async def search_item(self, item_id: int, flags: int) -> dict[str, Any]:
+        """Busca UN elemento por id con ``core/search_item`` (base de ``GET /vehicles/{id}``).
+
+        Raises:
+            WialonNotFound: Wialon respondió 7. Verificado en demoApps: Wialon da el
+                MISMO error 7 si el id no existe y si no hay permiso, así que no se
+                puede distinguir; se responde "no encontrado" para no revelar que
+                existe un objeto que el usuario no puede ver.
+        """
+        try:
+            result = await self.call("core/search_item", {"id": item_id, "flags": flags})
+        except WialonAccessDenied as exc:
+            raise WialonNotFound(exc.code, f"El elemento {item_id} no existe o no es visible") from exc
+        return dict(result["item"])  # copia: quien la reciba no modifica la respuesta original
 
     async def logout(self) -> None:
         """Cierra la sesión en Wialon (``core/logout``)."""

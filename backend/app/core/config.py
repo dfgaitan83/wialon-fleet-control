@@ -33,7 +33,9 @@ class Settings(BaseSettings):
     # explícitamente con .get_secret_value(). Evita filtrar el token en logs.
     wialon_token: SecretStr  # obligatorio (sin valor por defecto)
     wialon_base_url: str = "https://hst-api.wialon.com/wialon/ajax.html"  # endpoint único
-    wialon_timeout_seconds: float = 15.0  # tiempo máximo por petición a Wialon
+    # Tiempo máximo por petición a Wialon (plan M1: 10 s). Si Wialon no responde, la
+    # API devuelve error en vez de dejar al usuario esperando indefinidamente.
+    wialon_timeout_seconds: float = 10.0
     # Orígenes que pueden llamar al backend desde el navegador (5173 = puerto de Vite).
     cors_origins: list[str] = ["http://localhost:5173"]
 
