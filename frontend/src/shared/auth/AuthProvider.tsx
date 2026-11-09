@@ -27,6 +27,7 @@ import type {
   AuthStatus,
   AuthUser,
   LoginCredentials,
+  PasswordChange,
   Permission,
 } from './types'
 
@@ -90,6 +91,15 @@ export function AuthProvider({ service, children }: AuthProviderProps) {
     setState(ANONYMOUS)
   }, [service])
 
+  const changePassword = useCallback(
+    async (change: PasswordChange) => {
+      // Si falla (contraseña actual mala, política...), el ApiError llega al formulario.
+      const user = await service.changePassword(change)
+      setState({ status: 'authenticated', user }) // mustChangePassword = false: se libera el panel
+    },
+    [service],
+  )
+
   const hasPermission = useCallback(
     (permission: Permission) => userHasPermission(state.user, permission),
     [state.user],
@@ -97,8 +107,8 @@ export function AuthProvider({ service, children }: AuthProviderProps) {
 
   // useMemo: el objeto del contexto solo cambia si cambia algo real -> menos renders.
   const value = useMemo<AuthContextValue>(
-    () => ({ status: state.status, user: state.user, login, logout, hasPermission }),
-    [state, login, logout, hasPermission],
+    () => ({ status: state.status, user: state.user, login, logout, changePassword, hasPermission }),
+    [state, login, logout, changePassword, hasPermission],
   )
 
   return <AuthContext value={value}>{children}</AuthContext> // React 19: <Context> como proveedor

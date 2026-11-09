@@ -20,7 +20,7 @@ import { apiClient } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/problem'
 import { backendWakeup } from '@/shared/server/backendStatus'
 
-import type { AuthService, AuthUser, LoginCredentials, Permission } from './types'
+import type { AuthService, AuthUser, LoginCredentials, PasswordChange, Permission } from './types'
 
 const INVALID_RESPONSE_STATUS = 502 // "Bad Gateway": el servidor respondió algo inesperado
 
@@ -80,5 +80,14 @@ export const authApi: AuthService = {
   /** Cierra la sesión EN EL SERVIDOR (revoca el refresh token y borra las cookies). */
   async logout(): Promise<void> {
     await apiClient.post('/auth/logout')
+  },
+
+  /** Cambia la contraseña; el backend cierra las demás sesiones y renueva las cookies. */
+  async changePassword({ currentPassword, newPassword }: PasswordChange): Promise<AuthUser> {
+    const { data } = await apiClient.post<unknown>('/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    })
+    return toAuthUser(parseOrThrow(sessionSchema, data).user)
   },
 }

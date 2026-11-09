@@ -12,7 +12,13 @@
  */
 import { ApiError } from '@/shared/api/problem'
 
-import { APP_PERMISSIONS, type AuthService, type AuthUser, type LoginCredentials } from './types'
+import {
+  APP_PERMISSIONS,
+  type AuthService,
+  type AuthUser,
+  type LoginCredentials,
+  type PasswordChange,
+} from './types'
 
 const DEMO_LATENCY_MS = 350 // simula la red para ver estados de carga reales
 
@@ -43,5 +49,13 @@ export const demoAuthService: AuthService = {
 
   async logout(): Promise<void> {
     await wait(DEMO_LATENCY_MS)
+  },
+
+  async changePassword({ currentPassword, newPassword }: PasswordChange): Promise<AuthUser> {
+    await wait(DEMO_LATENCY_MS)
+    if (!currentPassword || !newPassword) {
+      throw new ApiError(422, 'Revisa los datos del formulario.')
+    }
+    return { ...DEMO_ADMIN, mustChangePassword: false }
   },
 }

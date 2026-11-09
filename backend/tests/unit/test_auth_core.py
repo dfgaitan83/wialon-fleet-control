@@ -18,9 +18,13 @@ from app.core.logging import REDACTED, redact_secrets
 from app.domain.permissions import ROLE_PERMISSIONS, Permission, RoleName
 from app.domain.users import User, password_policy_errors
 from app.infrastructure.db.base import create_engine, create_session_factory
-from app.infrastructure.db.models import UserModel
-from app.infrastructure.security import JWT_ALGORITHM, JwtAccessTokenService
-from scripts.seed_admin import AdminSeedSettings, seed_admin
+from app.infrastructure.db.models import AuditLogModel, UserModel
+from app.infrastructure.security import (
+    JWT_ALGORITHM,
+    Argon2PasswordHasher,
+    JwtAccessTokenService,
+)
+from scripts.seed_admin import AdminSeedSettings, reset_admin_password, seed_admin
 from tests.conftest import BACKEND_DIR, TEST_JWT_SECRET, alembic_config
 
 NOW = datetime(2026, 11, 8, 12, 0, tzinfo=UTC)
@@ -217,6 +221,39 @@ async def test_migrations_downgrade_to_base_and_upgrade_again(tmp_path: Path) ->
     config = alembic_config(url)
     for target in ("head", "base", "head"):
         await asyncio.to_thread(command.upgrade if target == "head" else command.downgrade, config, target)
+
+
+async def test_reset_admin_password_recovers_a_locked_out_admin(database_url: str) -> None:
+    original = AdminSeedSettings(  # type: ignore[call-arg]
+        admin_email="jefe@flota.example.com", admin_password=SecretStr("Clave-Olvidada-2026")
+    )
+    await seed_admin(database_url, original)
+    engine = create_engine(database_url)
+    async with create_session_factory(engine)() as session:  # simula un Admin bloqueado
+        admin_row = await session.scalar(select(UserModel))
+        admin_row.failed_login_attempts, admin_row.locked_until = 4, datetime(2099, 1, 1, tzinfo=UTC)
+        await session.commit()
+
+    recovered = original.model_copy(update={"admin_password": SecretStr("Clave-Nueva-Segura-77")})
+    assert await reset_admin_password(database_url, recovered) is True
+
+    async with create_session_factory(engine)() as session:
+        row = await session.scalar(select(UserModel))
+        actions = list(await session.scalars(select(AuditLogModel.action)))
+    await engine.dispose()
+    hasher = Argon2PasswordHasher()
+    assert hasher.verify(row.password_hash, "Clave-Nueva-Segura-77")
+    assert not hasher.verify(row.password_hash, "Clave-Olvidada-2026")
+    assert (row.failed_login_attempts, row.locked_until) == (0, None)  # desbloqueado
+    assert "auth.admin_password_reset_cli" in actions  # queda auditado
+
+
+async def test_reset_admin_password_ignores_unknown_or_non_admin_emails(database_url: str) -> None:
+    nobody = AdminSeedSettings(  # type: ignore[call-arg]
+        admin_email="nadie@flota.example.com", admin_password=SecretStr("Clave-Nueva-Segura-77")
+    )
+
+    assert await reset_admin_password(database_url, nobody) is False
 
 
 async def test_seed_admin_is_idempotent(database_url: str) -> None:

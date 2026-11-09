@@ -63,7 +63,17 @@ export interface AuthService {
   login(credentials: LoginCredentials): Promise<AuthUser>
   me(): Promise<AuthUser>
   logout(): Promise<void>
+  changePassword(change: PasswordChange): Promise<AuthUser> // RF-06: devuelve el usuario ya sin la obligación
 }
+
+/** Datos del formulario de cambio de contraseña. */
+export interface PasswordChange {
+  readonly currentPassword: string
+  readonly newPassword: string
+}
+
+/** Ruta del cambio de contraseña (obligatorio si mustChangePassword). */
+export const CHANGE_PASSWORD_PATH = '/cambiar-contrasena'
 
 /**
  * Estado de la sesión:
@@ -79,5 +89,6 @@ export interface AuthContextValue {
   readonly user: AuthUser | null
   readonly login: (credentials: LoginCredentials) => Promise<void>
   readonly logout: () => Promise<void>
+  readonly changePassword: (change: PasswordChange) => Promise<void>
   readonly hasPermission: (permission: Permission) => boolean
 }
