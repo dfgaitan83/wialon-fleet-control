@@ -230,6 +230,33 @@ class SqlAuditLog:
         await self._session.flush()
 
 
+class SqlAuditReader:
+    """Consulta paginada de la auditoría, más reciente primero."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def list_page(
+        self, offset: int, limit: int, *, category: str | None, search: str | None
+    ) -> tuple[list[AuditEntry], int]:
+        query = select(AuditLogModel)
+        if category:  # "auth", "users", "drivers"... = prefijo de la acción
+            query = query.where(AuditLogModel.action.startswith(f"{category}.", autoescape=True))
+        if search:  # correo del actor (autoescape: "%" y "_" son literales)
+            query = query.where(func.lower(AuditLogModel.actor_email).contains(search.lower(), autoescape=True))
+        total = await self._session.scalar(select(func.count()).select_from(query.subquery())) or 0
+        rows = await self._session.scalars(
+            query.order_by(AuditLogModel.occurred_at.desc(), AuditLogModel.id.desc()).offset(offset).limit(limit)
+        )
+        return [
+            AuditEntry(
+                action=r.action, occurred_at=r.occurred_at, actor_user_id=r.actor_user_id, actor_email=r.actor_email,
+                entity_type=r.entity_type, entity_id=r.entity_id, ip_address=r.ip_address, details=r.details,
+            )
+            for r in rows
+        ], total
+
+
 class SqlUnitOfWork:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session

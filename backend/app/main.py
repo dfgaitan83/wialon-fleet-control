@@ -24,6 +24,7 @@ from slowapi.util import get_remote_address
 from app.api.cookies import CSRF_HEADER
 from app.api.errors import register_app_error_handlers
 from app.api.middleware import register_middleware
+from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import build_auth_router
 from app.api.v1.fleet import router as fleet_router
 from app.api.v1.people import drivers_router, passengers_router
@@ -127,6 +128,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     v1.include_router(fleet_router)  # RF-10..13, RF-23: vehículos y dashboard
     v1.include_router(drivers_router)  # RF-16..18: conductores
     v1.include_router(passengers_router)  # RF-08, RF-09, RF-27, RF-28: pasajeros
+    v1.include_router(audit_router)  # RF-26: registro de auditoría (Admin)
     app.include_router(v1)
     return app
 
