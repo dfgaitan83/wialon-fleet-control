@@ -5,11 +5,13 @@
  * página que se intentaba abrir (state.from de RequireAuth) o al panel.
  * Los errores del servidor (401, red...) llegan como ApiError con mensaje en español.
  */
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { type Location, Navigate, useLocation } from 'react-router-dom'
 
 import { ApiError } from '@/shared/api/problem'
 import { useAuth } from '@/shared/auth/useAuth'
+import { backendWakeup } from '@/shared/server/backendStatus'
+import { ServerWakeNotice } from '@/shared/server/ServerWakeNotice'
 import { Button } from '@/shared/ui/Button'
 import { TextField } from '@/shared/ui/TextField'
 
@@ -31,6 +33,12 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({})
   const [formError, setFormError] = useState<string | null>(null) // error general (ej. credenciales)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // DEP-04: despierta el backend en cuanto se abre el login. Mientras el usuario
+  // escribe, Render ya va arrancando; al enviar, normalmente ya está listo.
+  useEffect(() => {
+    void backendWakeup.ensureReady().catch(() => undefined) // el aviso ya muestra el fallo
+  }, [])
 
   // ÚNICA fuente de redirección: en cuanto hay sesión (recién iniciada o previa),
   // se va a la página que se intentaba abrir o al panel. Tener un navigate() extra
@@ -73,6 +81,7 @@ export function LoginPage() {
 
         {/* noValidate: usamos nuestra validación (mensajes en español y consistentes). */}
         <form className="login__form" onSubmit={handleSubmit} noValidate>
+          <ServerWakeNotice />
           {formError && (
             <p className="ui-alert" role="alert">
               {formError}
