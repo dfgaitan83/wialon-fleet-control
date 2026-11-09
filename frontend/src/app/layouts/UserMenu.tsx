@@ -19,7 +19,7 @@ export function UserMenu() {
     // RequireAuth (aún en /app) vería "anonymous" y redirigiría a /login en vez de
     // a la landing (carrera detectada por router.test.tsx).
     await navigate('/', { replace: true }) // replace: el panel no queda en el historial
-    logout()
+    await logout() // el servidor invalida la sesión (no basta con olvidarla en el navegador)
   }
 
   return (

@@ -9,15 +9,36 @@ export type Permission = `${string}:${string}` // ej. "drivers:write", "vehicles
 /** Ruta pública del formulario de login (a donde redirige RequireAuth). */
 export const LOGIN_PATH = '/login'
 
-/** Comodín: el administrador tiene todos los permisos. */
-export const ALL_PERMISSIONS = '*:*' satisfies Permission
+/**
+ * Catálogo de permisos del backend (app/domain/permissions.py). Sin comodín "*:*":
+ * el backend envía al Admin los 13 permisos explícitos, así la UI pregunta siempre
+ * por un permiso concreto, igual que el servidor.
+ */
+export const APP_PERMISSIONS = [
+  'dashboard:read',
+  'vehicles:read',
+  'vehicles:write',
+  'drivers:read',
+  'drivers:write',
+  'passengers:read',
+  'passengers:write',
+  'assignments:write',
+  'history:read',
+  'export:csv',
+  'users:read',
+  'users:write',
+  'audit:read',
+] as const satisfies readonly Permission[]
 
 /** Usuario autenticado tal como lo usa la UI. */
 export interface AuthUser {
   readonly id: string
   readonly email: string
   readonly fullName: string
+  readonly role: string // "admin" | "operator" | "viewer" (o roles futuros)
+  readonly roleLabel: string // nombre visible: "Administrador"...
   readonly permissions: readonly Permission[] // readonly: la UI nunca los modifica
+  readonly mustChangePassword: boolean // RF-06: obligatorio en el primer inicio de sesión
 }
 
 /** Datos del formulario de login. */
@@ -26,29 +47,27 @@ export interface LoginCredentials {
   readonly password: string
 }
 
-/** Resultado de un login correcto. */
-export interface LoginResult {
-  readonly accessToken: string
-  readonly user: AuthUser
-}
-
 /**
  * PUERTO de autenticación (SOLID):
- * - I (Segregación de interfaces): solo los DOS métodos que AuthProvider necesita.
+ * - I (Segregación de interfaces): solo los métodos que AuthProvider necesita.
  * - D (Inversión de dependencias): AuthProvider depende de ESTA interfaz, no de axios
  *   ni de un endpoint concreto. La implementación se inyecta desde app/providers.tsx.
  * - L (Sustitución de Liskov): cualquier implementación (HTTP real, demo en memoria,
  *   fake de tests) debe poder reemplazar a otra sin que AuthProvider cambie.
- *   Contrato: login/me resuelven con datos válidos o rechazan con ApiError.
+ *   Contrato: resuelven con datos válidos o rechazan con ApiError.
+ *
+ * Ningún método devuelve tokens: la sesión vive en cookies HttpOnly que el
+ * JavaScript NO puede leer (un XSS no puede robarlas).
  */
 export interface AuthService {
-  login(credentials: LoginCredentials): Promise<LoginResult>
+  login(credentials: LoginCredentials): Promise<AuthUser>
   me(): Promise<AuthUser>
+  logout(): Promise<void>
 }
 
 /**
  * Estado de la sesión:
- * - checking: hay token guardado y se está validando con /auth/me (tras un F5).
+ * - checking: hay indicio de sesión (cookie CSRF) y se valida con /auth/me (tras un F5).
  * - authenticated: sesión válida y usuario cargado.
  * - anonymous: sin sesión.
  */
@@ -59,6 +78,6 @@ export interface AuthContextValue {
   readonly status: AuthStatus
   readonly user: AuthUser | null
   readonly login: (credentials: LoginCredentials) => Promise<void>
-  readonly logout: () => void
+  readonly logout: () => Promise<void>
   readonly hasPermission: (permission: Permission) => boolean
 }
