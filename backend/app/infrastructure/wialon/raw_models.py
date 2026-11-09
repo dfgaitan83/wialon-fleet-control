@@ -121,6 +121,8 @@ class RawPassenger(_RawModel):
     id: int
     n: str  # nombre
     c: str = ""  # código
+    ds: str = ""  # descripción
+    p: str = ""  # teléfono
     bu: int = 0  # id de la unidad asignada; 0 = sin vehículo
     jp: dict[str, str] = {}
 

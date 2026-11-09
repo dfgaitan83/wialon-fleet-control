@@ -31,6 +31,7 @@ WIALON_ERRORS: dict[int, str] = {
     9: "Servidor de autorización no disponible",
     10: "Se alcanzó el límite de solicitudes concurrentes",
     1001: "No hay mensajes en el intervalo seleccionado",
+    1002: "Ya existe un elemento con esa propiedad única",  # p. ej. teléfono de conductor repetido (verificado)
     1003: "Solo se permite una solicitud a la vez",  # por eso el explorador va secuencial
     1011: "La IP cambió o la sesión expiró",
 }
@@ -73,6 +74,10 @@ class WialonNotFound(WialonError):
     """
 
 
+class WialonConflict(WialonError):
+    """Propiedad única repetida (1002): p. ej. el teléfono de un conductor ya lo usa otro -> 409."""
+
+
 class WialonUnavailable(WialonError):
     """Wialon no responde o está saturado: red/timeout/5xx, respuesta no JSON, 9, 10, 1003.
 
@@ -87,6 +92,7 @@ _ERROR_TYPES: dict[int, type[WialonError]] = {
     8: WialonSessionError,
     1011: WialonSessionError,
     ERROR_ACCESS_DENIED: WialonAccessDenied,
+    1002: WialonConflict,
     ERROR_NETWORK: WialonUnavailable,
     ERROR_INVALID_RESULT: WialonUnavailable,
     9: WialonUnavailable,

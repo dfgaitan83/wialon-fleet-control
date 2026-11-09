@@ -14,6 +14,7 @@ import pytest
 from app.infrastructure.wialon.errors import (
     ERROR_NETWORK,
     WialonAccessDenied,
+    WialonConflict,
     WialonError,
     WialonNotFound,
     WialonSessionError,
@@ -29,6 +30,7 @@ from app.infrastructure.wialon.errors import (
         (8, WialonSessionError),  # token inválido o expirado
         (1011, WialonSessionError),  # la IP cambió o la sesión expiró
         (7, WialonAccessDenied),  # acceso denegado (también si el id no existe: verificado)
+        (1002, WialonConflict),  # propiedad única repetida (teléfono de conductor: verificado)
         (ERROR_NETWORK, WialonUnavailable),  # fallo de red / timeout / HTTP 5xx
         (9, WialonUnavailable),  # servidor de autorización no disponible
         (10, WialonUnavailable),  # límite de peticiones concurrentes

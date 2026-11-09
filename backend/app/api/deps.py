@@ -25,6 +25,7 @@ from app.application.audit_service import AuditService
 from app.application.auth_service import AuthPolicy, AuthService
 from app.application.errors import PasswordChangeRequired, PermissionDenied
 from app.application.fleet_service import FleetService
+from app.application.people_service import PeopleService
 from app.application.user_service import UserService
 from app.core.clock import utc_now
 from app.core.config import Settings
@@ -97,6 +98,15 @@ def get_fleet_service(request: Request) -> FleetService:
 
 
 FleetServiceDep = Annotated[FleetService, Depends(get_fleet_service)]
+
+
+def get_people_service(request: Request, session: SessionDep) -> PeopleService:
+    return PeopleService(
+        request.app.state.fleet_gateway, get_audit_service(session), SqlUnitOfWork(session), clock=utc_now
+    )
+
+
+PeopleServiceDep = Annotated[PeopleService, Depends(get_people_service)]
 
 
 def client_ip(request: Request) -> str | None:
