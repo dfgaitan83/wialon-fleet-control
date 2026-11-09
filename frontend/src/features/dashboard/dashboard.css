@@ -356,3 +356,10 @@
     transform: none;
   }
 }
+
+/* Dato viejo: punto gris y sin latido (no se finge "en vivo"). */
+.welcome__live--stale .welcome__dot,
+.welcome__live--stale .welcome__dot::after {
+  background: var(--palette-gray);
+  animation: none;
+}

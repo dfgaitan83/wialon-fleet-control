@@ -61,13 +61,15 @@ export function DashboardPage() {
     refetchInterval: POSITIONS_REFRESH_MS,
   })
   const firstName = user?.fullName.split(' ')[0] ?? ''
+  const isStale = summary.isRefetchError || positions.isRefetchError // refresco fallido: no fingir "en vivo"
 
   return (
     <section aria-labelledby="page-title" className="dashboard">
       <header className="welcome">
         <div className="welcome__text">
-          <p className="welcome__live">
-            <span className="welcome__dot" aria-hidden="true" /> En vivo
+          {/* "En vivo" SOLO si el último refresco funcionó; si falló, se dice (dato viejo). */}
+          <p className={`welcome__live${isStale ? ' welcome__live--stale' : ''}`}>
+            <span className="welcome__dot" aria-hidden="true" /> {isStale ? 'Datos desactualizados' : 'En vivo'}
             {summary.data && <> · actualizado {formatRelative(summary.data.generatedAt)}</>}
           </p>
           <h1 id="page-title" className="welcome__title">
