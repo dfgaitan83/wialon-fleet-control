@@ -167,8 +167,34 @@
     height: 100dvh;
     padding: var(--space-6) var(--space-3);
     border-top: none;
-    border-left: 4px solid var(--color-brand); /* franja de marca en vertical */
+    border-left: none; /* reemplazado por ::before animado */
     box-shadow: 1px 0 0 var(--color-border); /* separación sutil del contenido */
+  }
+
+  /* Franja lateral animada: gradiente que "respira" entre teal y rojo. */
+  .app-sidebar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      var(--palette-teal),
+      var(--palette-red),
+      var(--palette-red-dark),
+      var(--palette-teal),
+      var(--palette-red),
+      var(--palette-red-dark),
+      var(--palette-teal)
+    );
+    background-size: 100% 300%;
+    animation: sidebar-stripe 9s ease-in-out infinite alternate;
+  }
+  @keyframes sidebar-stripe {
+    from { background-position: 0% 0%; }
+    to   { background-position: 0% 100%; }
   }
   .sidebar-nav { overflow: visible; }
   .sidebar-nav ul { flex-direction: column; }
@@ -183,4 +209,42 @@
   .sidebar-link {
     min-height: 2.75rem; /* 44 px: objetivo táctil mínimo */
   }
+}
+
+/* ====================== Animaciones del isotipo de marca ====================== */
+
+/* Halo pulsante desde el centro del pin hacia afuera (igual que AuthShell). */
+.brand-pin-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: brand-pin-pulse 2.6s ease-out infinite;
+}
+@keyframes brand-pin-pulse {
+  0%   { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Arcos de señal GPS: near primero, far con retraso (barrido progresivo). */
+.brand-signal {
+  animation: brand-signal 3s ease-in-out infinite;
+}
+.brand-signal--far {
+  animation-delay: 0.9s;
+}
+@keyframes brand-signal {
+  0%, 100% { opacity: 0.25; }
+  50%       { opacity: 1; }
+}
+
+/* Accesibilidad: sin animaciones si el sistema operativo lo pide. */
+@media (prefers-reduced-motion: reduce) {
+  .brand-pin-halo,
+  .brand-signal,
+  .app-sidebar::before {
+    animation: none;
+  }
+}
+/* Restaura el borde estático en desktop cuando no hay animación. */
+@media (prefers-reduced-motion: reduce) and (min-width: 900px) {
+  .app-sidebar { border-left: 4px solid var(--color-brand); }
 }

@@ -113,7 +113,14 @@ export function FleetMap({
     mapRef.current = map
     layerRef.current = layer
     const markers = markersRef.current // copia local: la limpieza usa el mismo objeto
+    // Leaflet mide su contenedor al crearse; si la tarjeta crece después (p. ej. al cargar
+    // otra columna), se recalcula para no dejar zonas grises sin teselas.
+    // Mejora progresiva: sin ResizeObserver (navegadores antiguos, jsdom) el mapa funciona igual.
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => map.invalidateSize())
+    resizeObserver?.observe(containerRef.current)
     return () => {
+      resizeObserver?.disconnect()
       map.remove()
       mapRef.current = null
       markers.clear()

@@ -13,11 +13,14 @@ export function BrandMark() {
   return (
     <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
       <rect width="32" height="32" rx="9" fill="var(--color-brand)" />
+      {/* Halo pulsante alrededor del pin: "señal GPS activa" */}
+      <circle className="brand-pin-halo" cx="16" cy="14.6" r="4.5" fill="rgb(255 255 255 / 0.22)" />
       {/* Marcador de posición */}
       <path d="M16 25s-6-5.6-6-10.2a6 6 0 1 1 12 0C22 19.4 16 25 16 25z" fill="#fff" />
       <circle cx="16" cy="14.6" r="2.3" fill="var(--color-brand)" />
-      {/* Onda de señal (teal = "señal viva", el mismo color de "en movimiento") */}
-      <path d="M23.5 7.5a9 9 0 0 1 2.2 4" stroke="var(--palette-teal)" strokeWidth="2" strokeLinecap="round" fill="none" />
+      {/* Arcos de señal GPS escalonados: near pulsa primero, far con retraso */}
+      <path className="brand-signal brand-signal--near" d="M23.5 7.5a9 9 0 0 1 2.2 4" stroke="var(--palette-teal)" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <path className="brand-signal brand-signal--far" d="M21.5 5.3a13 13 0 0 1 3.8 7" stroke="var(--palette-teal)" strokeWidth="1.3" strokeLinecap="round" fill="none" />
     </svg>
   )
 }
