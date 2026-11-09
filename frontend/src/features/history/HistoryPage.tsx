@@ -146,7 +146,7 @@ export function HistoryPage() {
           <input id="history-to" name="to" type="datetime-local" className="ui-field__input" defaultValue={dateToBogotaInput(initialTo)} />
         </div>
         <div className="history-form__actions">
-          <Button type="submit" disabled={track.isFetching}>
+          <Button type="submit" variant="primary" disabled={track.isFetching}>
             {track.isFetching ? 'Consultando…' : 'Ver recorrido'}
           </Button>
         </div>
@@ -177,8 +177,9 @@ function TrackViewer({ track }: { readonly track: Track }) {
       <div className="page-card history-map-card">
         <TrackMap points={points} current={current} />
       </div>
-      <aside className="history-side">
-        <dl className="page-card history-stats" aria-label="Resumen del recorrido">
+      <aside className="page-card history-side" aria-label="Resumen y reproducción del recorrido">
+        <h2 className="history-side__title">Resumen del recorrido</h2>
+        <dl className="history-stats">
           <div>
             <dt>Distancia</dt>
             <dd>{numberFormat.format(track.distanceKm)} km</dd>
@@ -197,9 +198,12 @@ function TrackViewer({ track }: { readonly track: Track }) {
           </div>
         </dl>
 
-        <div className="page-card history-player" role="group" aria-label="Reproducción del recorrido">
+        <div className="history-player" role="group" aria-labelledby="history-player-title">
+          <h2 id="history-player-title" className="history-side__title">
+            Reproducción
+          </h2>
           <div className="history-player__controls">
-            <Button onClick={playback.toggle} disabled={points.length < 2} aria-pressed={playback.isPlaying}>
+            <Button variant="primary" onClick={playback.toggle} disabled={points.length < 2} aria-pressed={playback.isPlaying}>
               {playback.isPlaying ? 'Pausar' : 'Reproducir'}
             </Button>
             <div className="history-player__speeds" role="radiogroup" aria-label="Velocidad de reproducción">

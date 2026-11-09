@@ -1,35 +1,67 @@
 /* Historial (RF-24). Mobile-first: todo apilado; en escritorio mapa + panel lateral. */
+
+/* ------------------------------ Formulario ------------------------------ */
 .history-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
+  gap: var(--space-3) var(--space-4);
+  align-items: end; /* campos y botón comparten la misma línea base */
   margin-block-end: var(--space-4);
 }
-.history-form__actions { display: flex; align-items: flex-end; }
-.history-form__actions > * { width: 100%; }
+.history-form .ui-field { min-width: 0; }
+/* datetime-local tiene un ancho intrínseco grande: sin esto se monta sobre la columna vecina. */
+.history-form .ui-field__input { width: 100%; min-width: 0; }
+.history-form__actions { display: flex; }
+.history-form__actions > * { width: 100%; min-height: 2.75rem; }
 .history-form__error { grid-column: 1 / -1; margin: 0; }
 
+/* -------------------------- Mapa + panel lateral -------------------------- */
 .history-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
+  align-items: start;
 }
 .history-layout > * { min-width: 0; }
 .history-map-card { padding: 0; overflow: hidden; }
 .track-map { height: 55vh; min-height: 18rem; width: 100%; }
 
+/* Un solo panel: resumen arriba, reproducción abajo, separados por una línea. */
 .history-side { display: grid; gap: var(--space-4); align-content: start; }
+.history-side__title {
+  margin: 0 0 var(--space-3);
+  color: var(--color-ink-muted);
+  font: 600 var(--text-xs) / 1 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
 .history-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin: 0;
 }
+.history-stats > div {
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+}
 .history-stats dt { color: var(--color-ink-muted); font-size: var(--text-xs); }
-.history-stats dd { margin: 0; font: 600 var(--text-lg) / 1.2 var(--font-sans); }
+.history-stats dd {
+  margin: var(--space-1) 0 0;
+  font: 600 var(--text-lg) / 1.2 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
 
-.history-player { display: grid; gap: var(--space-3); }
+/* ------------------------------ Reproducción ------------------------------ */
+.history-player {
+  display: grid;
+  gap: var(--space-3);
+  padding-block-start: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.history-player .history-side__title { margin-block-end: 0; }
 .history-player__controls {
   display: flex;
   flex-wrap: wrap;
@@ -47,24 +79,27 @@
   color: var(--color-ink);
   font: 600 var(--text-sm) var(--font-sans);
   cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
+.history-player__speed:hover { background: var(--color-surface-sunken); }
 .history-player__speed[aria-checked='true'] {
   border-color: var(--palette-red-dark);
   background: var(--palette-red-dark);
   color: #fff; /* blanco sobre #A81A2B: 7.2:1 */
 }
 .history-player__speed:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.history-player__seek { width: 100%; min-height: 2.75rem; accent-color: var(--palette-red-dark); }
+.history-player__seek { width: 100%; min-height: 2.75rem; margin: 0; accent-color: var(--palette-red-dark); }
 .history-player__now {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-1) var(--space-3);
+  gap: var(--space-2) var(--space-4);
   margin: 0;
   font-size: var(--text-sm);
 }
 .history-player__now dt { color: var(--color-ink-muted); }
-.history-player__now dd { margin: 0; font-variant-numeric: tabular-nums; }
+.history-player__now dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
 
+/* Marcadores de inicio y fin del recorrido. */
 .track-dot span {
   display: block;
   width: 14px;
@@ -74,14 +109,17 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
+/* ------------------------------ Breakpoints ------------------------------ */
 @media (min-width: 640px) {
   /* Vehículo ocupa fila completa; fechas y botón comparten la fila siguiente */
   .history-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
   .history-form__vehicle { grid-column: 1 / -1; }
+  .history-form__actions > * { width: auto; }
 }
 @media (min-width: 1100px) {
-  .history-form { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .history-form { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
   .history-form__vehicle { grid-column: auto; }
-  .history-layout { grid-template-columns: minmax(0, 1fr) 22rem; }
+  .history-layout { grid-template-columns: minmax(0, 1fr) 21rem; }
   .track-map { height: 70vh; }
+  .history-side { position: sticky; top: var(--space-4); } /* acompaña el mapa al hacer scroll */
 }
