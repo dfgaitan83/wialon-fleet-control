@@ -56,27 +56,35 @@
 }
 
 .app-sidebar {
+  position: relative; /* ancla para el dropdown absoluto en móvil */
+  z-index: 50;        /* sobre el contenido cuando el menú está abierto */
   display: flex;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  /* Menú CLARO: fondo blanco + texto en tinta (>15:1). El usuario reportó que el menú oscuro
-     costaba leerse; el rojo de marca queda para la franja y el indicador de la opción activa. */
   background: var(--color-surface);
   color: var(--color-ink);
   border-top: 4px solid var(--color-brand);
   box-shadow: 0 1px 0 var(--color-border);
 }
 
-/* Móvil: menú plegado tras el botón "Menú"; al abrirse, lista VERTICAL a todo el ancho. */
-.app-sidebar { flex-wrap: wrap; justify-content: space-between; }
-.sidebar-nav { display: none; flex-basis: 100%; min-width: 0; }
+/* Móvil: menú plegado; al abrirse, dropdown absoluto sobre el contenido. */
+.app-sidebar { justify-content: space-between; }
+.sidebar-nav { display: none; min-width: 0; }
 .app-sidebar[data-menu-open='true'] .sidebar-nav {
   display: block;
-  padding-block-end: var(--space-2);
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: var(--space-2) var(--space-3) var(--space-4);
   animation: menu-drop var(--duration-normal, 250ms) var(--ease-out, ease-out);
 }
-@keyframes menu-drop { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes menu-drop { from { opacity: 0; transform: translateY(-8px); } }
 .sidebar-nav ul {
   display: flex;
   flex-direction: column;
@@ -164,20 +172,21 @@
   .app-shell {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr); /* menú lateral fijo + contenido */
     grid-template-rows: 1fr;
-    /* La columna del menú se pinta del mismo color en páginas largas (sin corte visual bajo el menú fijo). */
     background: linear-gradient(to right, var(--color-surface) var(--sidebar-width), transparent 0);
   }
   .app-sidebar {
     position: sticky; /* el menú queda fijo al hacer scroll del contenido */
     top: 0;
+    z-index: auto;    /* reset: en escritorio no necesita solapar nada */
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-8);
     height: 100dvh;
+    overflow-y: auto; /* scroll si hay muchos items de navegación */
     padding: var(--space-6) var(--space-3);
     border-top: none;
-    border-left: none; /* reemplazado por ::before animado */
-    box-shadow: 1px 0 0 var(--color-border); /* separación sutil del contenido */
+    border-left: none;
+    box-shadow: 1px 0 0 var(--color-border);
   }
 
   /* Franja lateral animada: gradiente que "respira" entre teal y rojo. */
@@ -258,6 +267,17 @@
   .app-sidebar { border-left: 4px solid var(--color-brand); }
 }
 
+/* Telón semitransparente (solo móvil): cierra el menú al tocar fuera de él. */
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40; /* debajo del sidebar (50) pero sobre el contenido */
+  background: rgba(0, 0, 0, 0.25);
+}
+@media (min-width: 900px) {
+  .menu-backdrop { display: none; }
+}
+
 /* Botón "Menú" (solo móvil): objetivo de 44 px, muestra la sección actual. */
 .app-menu-toggle {
   display: inline-flex;
@@ -281,7 +301,16 @@
 @media (min-width: 900px) {
   .app-menu-toggle { display: none; }
   .app-sidebar .sidebar-nav,
-  .app-sidebar[data-menu-open='true'] .sidebar-nav { display: block; animation: none; padding: 0; }
+  .app-sidebar[data-menu-open='true'] .sidebar-nav {
+    /* Reset del dropdown absoluto de móvil: vuelve al flujo normal */
+    position: static;
+    display: block;
+    animation: none;
+    padding: 0;
+    box-shadow: none;
+    border-top: none;
+    background: transparent;
+  }
   .sidebar-nav .sidebar-link { min-height: 0; }
 }
 

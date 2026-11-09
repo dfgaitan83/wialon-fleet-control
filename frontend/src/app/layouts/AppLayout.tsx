@@ -57,6 +57,13 @@ export function AppLayout() {
         Saltar al contenido
       </a>
 
+      {menuOpen && (
+        <div
+          className="menu-backdrop"
+          aria-hidden="true"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
       <aside className="app-sidebar" data-menu-open={menuOpen}>
         <Brand to={APP_BASE_PATH} />
         <button
