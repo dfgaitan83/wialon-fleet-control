@@ -68,9 +68,18 @@
   box-shadow: 0 1px 0 var(--color-border);
 }
 
-.sidebar-nav { min-width: 0; overflow-x: auto; } /* móvil: el menú se desplaza horizontalmente */
+/* Móvil: menú plegado tras el botón "Menú"; al abrirse, lista VERTICAL a todo el ancho. */
+.app-sidebar { flex-wrap: wrap; justify-content: space-between; }
+.sidebar-nav { display: none; flex-basis: 100%; min-width: 0; }
+.app-sidebar[data-menu-open='true'] .sidebar-nav {
+  display: block;
+  padding-block-end: var(--space-2);
+  animation: menu-drop var(--duration-normal, 250ms) var(--ease-out, ease-out);
+}
+@keyframes menu-drop { from { opacity: 0; transform: translateY(-6px); } }
 .sidebar-nav ul {
   display: flex;
+  flex-direction: column;
   gap: var(--space-1);
   margin: 0;
   padding: 0;
@@ -104,8 +113,8 @@
 .sidebar-link--active::before {
   content: '';
   position: absolute;
-  inset: auto var(--space-3) 0 var(--space-3); /* móvil: barra inferior */
-  height: 3px;
+  inset: var(--space-2) auto var(--space-2) 0; /* barra vertical a la izquierda (móvil y escritorio) */
+  width: 3px;
   border-radius: var(--radius-pill);
   background: var(--color-brand);
 }
@@ -247,4 +256,35 @@
 /* Restaura el borde estático en desktop cuando no hay animación. */
 @media (prefers-reduced-motion: reduce) and (min-width: 900px) {
   .app-sidebar { border-left: 4px solid var(--color-brand); }
+}
+
+/* Botón "Menú" (solo móvil): objetivo de 44 px, muestra la sección actual. */
+.app-menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: 600 var(--text-sm) / 1 var(--font-sans);
+  cursor: pointer;
+}
+.app-menu-toggle:hover { background: var(--color-surface-sunken); }
+.app-menu-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.app-menu-toggle[aria-expanded='true'] { border-color: var(--palette-red-dark); color: var(--palette-red-dark); }
+.app-menu-toggle__current { font-weight: 500; color: var(--color-ink-muted); }
+.sidebar-nav .sidebar-link { min-height: 2.75rem; } /* 44 px por opción en el menú móvil */
+
+@media (min-width: 900px) {
+  .app-menu-toggle { display: none; }
+  .app-sidebar .sidebar-nav,
+  .app-sidebar[data-menu-open='true'] .sidebar-nav { display: block; animation: none; padding: 0; }
+  .sidebar-nav .sidebar-link { min-height: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar[data-menu-open='true'] .sidebar-nav { animation: none; }
 }

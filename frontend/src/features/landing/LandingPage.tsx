@@ -42,7 +42,7 @@ export function LandingPage() {
           </li>
           <li>
             <span className="landing-preview__plate">LLO843</span>
-            <StatusBadge tone="neutral" label="Sin conexión" />
+            <StatusBadge tone="neutral" label="Sin señal" />
           </li>
         </ul>
       </aside>
