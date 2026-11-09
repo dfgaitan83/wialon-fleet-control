@@ -231,6 +231,17 @@
   font: 500 var(--text-sm) / 1.45 var(--font-sans);
 }
 
+/* Variante informativa (ej. "Iniciando el servidor"): el teal solo en el borde
+   (elemento gráfico, basta 3:1); el TEXTO en tinta para cumplir AA (4.5:1). */
+.ui-alert--info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-left-color: var(--color-info);
+  background: var(--color-info-soft);
+  color: var(--color-ink);
+}
+
 /* Mensaje de estado de página (ej. "Verificando sesión…"). */
 .ui-page-status {
   padding: var(--space-8);

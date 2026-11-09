@@ -18,6 +18,7 @@ import { z } from 'zod'
 
 import { apiClient } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/problem'
+import { backendWakeup } from '@/shared/server/backendStatus'
 
 import type { AuthService, AuthUser, LoginCredentials, Permission } from './types'
 
@@ -64,12 +65,14 @@ function parseOrThrow<T>(schema: z.ZodType<T>, data: unknown): T {
 export const authApi: AuthService = {
   /** Inicia sesión. El backend responde el usuario y fija las cookies de sesión. */
   async login(credentials: LoginCredentials): Promise<AuthUser> {
+    await backendWakeup.ensureReady() // DEP-04: si Render está dormido, esperar a que despierte
     const { data } = await apiClient.post<unknown>('/auth/login', credentials) // unknown: se valida abajo
     return toAuthUser(parseOrThrow(sessionSchema, data).user)
   },
 
   /** Usuario de la sesión actual (se usa tras recargar la página). */
   async me(): Promise<AuthUser> {
+    await backendWakeup.ensureReady()
     const { data } = await apiClient.get<unknown>('/auth/me')
     return toAuthUser(parseOrThrow(userDtoSchema, data))
   },

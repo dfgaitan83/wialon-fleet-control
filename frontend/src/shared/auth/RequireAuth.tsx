@@ -9,6 +9,8 @@
 import type { ReactNode } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
+import { ServerWakeNotice } from '@/shared/server/ServerWakeNotice'
+
 import { LOGIN_PATH } from './types'
 import { useAuth } from './useAuth'
 
@@ -23,9 +25,12 @@ export function RequireAuth({ children }: RequireAuthProps) {
   // Mientras se valida el token tras un F5, no redirigir (evita "parpadeo" hacia /login).
   if (status === 'checking') {
     return (
-      <p role="status" aria-live="polite" className="ui-page-status">
-        Verificando sesión…
-      </p>
+      <div className="ui-page-status">
+        <p role="status" aria-live="polite">
+          Verificando sesión…
+        </p>
+        <ServerWakeNotice /> {/* DEP-04: si el servidor está dormido, se explica la espera */}
+      </div>
     )
   }
 

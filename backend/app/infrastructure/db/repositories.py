@@ -7,12 +7,17 @@ SQL. Todas las consultas usan el ORM (parametrizadas): sin inyección SQL (SEG-0
 from collections.abc import Callable
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.application.ports import AuditEntry, RefreshTokenRecord
+from app.application.ports import AuditEntry, NewUser, RefreshTokenRecord, RoleInfo
 from app.domain.users import User
-from app.infrastructure.db.models import AuditLogModel, RefreshTokenModel, UserModel
+from app.infrastructure.db.models import (
+    AuditLogModel,
+    RefreshTokenModel,
+    RoleModel,
+    UserModel,
+)
 
 
 def _to_domain(row: UserModel) -> User:
@@ -65,6 +70,94 @@ class SqlUserRepository:
                 updated_at=self._clock(),
             )
         )
+
+    # --- UserAdminRepository (RF-06) ---------------------------------------
+    async def list_page(self, offset: int, limit: int, search: str | None) -> tuple[list[User], int]:
+        query = select(UserModel)
+        if search:
+            # autoescape: "%" o "_" escritos por el Admin se buscan literalmente (no son comodines).
+            pattern = or_(
+                func.lower(UserModel.email).contains(search, autoescape=True),
+                func.lower(UserModel.full_name).contains(search, autoescape=True),
+            )
+            query = query.where(pattern)
+        total = await self._session.scalar(select(func.count()).select_from(query.subquery())) or 0
+        rows = await self._session.scalars(query.order_by(UserModel.id).offset(offset).limit(limit))
+        return [_to_domain(row) for row in rows], total
+
+    async def email_exists(self, email: str) -> bool:
+        return await self._session.scalar(select(UserModel.id).where(UserModel.email == email.lower())) is not None
+
+    async def add(self, new_user: NewUser) -> User:
+        now = self._clock()
+        row = UserModel(
+            email=new_user.email.lower(),
+            full_name=new_user.full_name,
+            password_hash=new_user.password_hash,
+            role_id=await self._role_id(new_user.role),
+            is_active=True,
+            must_change_password=new_user.must_change_password,
+            failed_login_attempts=0,
+            created_at=now,
+            updated_at=now,
+        )
+        self._session.add(row)
+        await self._session.flush()  # asigna el id sin confirmar la transacción
+        created = await self.get_by_id(row.id)
+        assert created is not None  # recién insertado en esta misma transacción
+        return created
+
+    async def update_account(self, user_id: int, *, full_name: str, role: str, is_active: bool) -> None:
+        await self._session.execute(
+            update(UserModel)
+            .where(UserModel.id == user_id)
+            .values(
+                full_name=full_name,
+                role_id=await self._role_id(role),
+                is_active=is_active,
+                updated_at=self._clock(),
+            )
+        )
+
+    async def reset_credentials(self, user_id: int, password_hash: str) -> None:
+        await self._session.execute(
+            update(UserModel)
+            .where(UserModel.id == user_id)
+            .values(
+                password_hash=password_hash,
+                must_change_password=True,  # RF-06: debe cambiarla al ingresar
+                failed_login_attempts=0,  # restablecer también desbloquea la cuenta
+                locked_until=None,
+                updated_at=self._clock(),
+            )
+        )
+
+    async def count_active_with_role(self, role: str) -> int:
+        query = (
+            select(func.count())
+            .select_from(UserModel)
+            .join(RoleModel)
+            .where(RoleModel.name == role, UserModel.is_active.is_(True))
+        )
+        return await self._session.scalar(query) or 0
+
+    async def _role_id(self, role: str) -> int:
+        role_id = await self._session.scalar(select(RoleModel.id).where(RoleModel.name == role))
+        if role_id is None:
+            raise LookupError(f"Rol inexistente: {role}")  # el servicio ya lo valida antes
+        return role_id
+
+
+class SqlRoleCatalog:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def list_roles(self) -> list[RoleInfo]:
+        rows = await self._session.scalars(select(RoleModel).order_by(RoleModel.id))
+        return [
+            RoleInfo(name=r.name, label=r.label, permissions=frozenset(p.code for p in r.permissions))
+            for r in rows
+        ]
 
 
 class SqlRefreshTokenStore:

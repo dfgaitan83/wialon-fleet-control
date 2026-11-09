@@ -47,6 +47,48 @@ class UserRepository(Protocol):
     ) -> None: ...
 
 
+@dataclass(frozen=True)
+class RoleInfo:
+    """Rol disponible para asignar (nombre técnico, nombre visible y permisos)."""
+
+    name: str
+    label: str
+    permissions: frozenset[str]
+
+
+@dataclass(frozen=True)
+class NewUser:
+    """Datos para crear un usuario (el hash ya calculado: el repositorio no ve contraseñas)."""
+
+    email: str
+    full_name: str
+    password_hash: str
+    role: str
+    must_change_password: bool = True  # RF-06
+
+
+class UserAdminRepository(Protocol):
+    """Operaciones de ADMINISTRACIÓN de usuarios (RF-06).
+
+    Separado de ``UserRepository`` (segregación de interfaces, la I de SOLID): el
+    login no necesita listar ni crear usuarios, así que no depende de estos métodos.
+    """
+
+    async def list_page(self, offset: int, limit: int, search: str | None) -> tuple[list[User], int]: ...
+    async def get_by_id(self, user_id: int) -> User | None: ...
+    async def email_exists(self, email: str) -> bool: ...
+    async def add(self, new_user: NewUser) -> User: ...
+    async def update_account(
+        self, user_id: int, *, full_name: str, role: str, is_active: bool
+    ) -> None: ...
+    async def reset_credentials(self, user_id: int, password_hash: str) -> None: ...
+    async def count_active_with_role(self, role: str) -> int: ...
+
+
+class RoleCatalog(Protocol):
+    async def list_roles(self) -> list[RoleInfo]: ...
+
+
 class RefreshTokenStore(Protocol):
     async def add(self, record: RefreshTokenRecord) -> None: ...
     async def get(self, token_hash: str) -> RefreshTokenRecord | None: ...
