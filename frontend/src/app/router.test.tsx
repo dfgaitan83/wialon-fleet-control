@@ -164,6 +164,23 @@ describe('Router y layouts', () => {
     expect(screen.getByText('Las contraseñas no coinciden')).toBeInTheDocument()
   })
 
+  it('móvil: el botón "Menú" muestra la sección actual, se abre y se cierra al elegir', async () => {
+    setCsrfCookie()
+    const router = renderAt('/app/vehicles')
+    const toggle = await screen.findByRole('button', { name: /^Menú/ })
+    expect(toggle).toHaveTextContent('Menú · Vehículos') // dice en qué sección estás
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+    const nav = screen.getByRole('navigation', { name: 'Principal' })
+    await userEvent.click(within(nav).getByRole('link', { name: 'Usuarios' }))
+    expect(router.state.location.pathname).toBe('/app/users')
+    expect(toggle).toHaveTextContent('Menú · Usuarios')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false') // se cerró al elegir
+  })
+
   it('con sesión activa, /login redirige al panel', async () => {
     setCsrfCookie()
     const router = renderAt('/login')

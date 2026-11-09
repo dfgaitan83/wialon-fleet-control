@@ -9,11 +9,13 @@ import { type NavItem, navItemPath } from '../navigation'
 
 interface SidebarNavProps {
   readonly items: readonly NavItem[]
+  readonly id?: string // lo referencia el botón "Menú" (aria-controls)
+  readonly onNavigate?: () => void // móvil: cerrar el menú al elegir una opción
 }
 
-export function SidebarNav({ items }: SidebarNavProps) {
+export function SidebarNav({ items, id, onNavigate }: SidebarNavProps) {
   return (
-    <nav aria-label="Principal" className="sidebar-nav">
+    <nav id={id} aria-label="Principal" className="sidebar-nav">
       <ul>
         {items.map((item) => (
           <li key={item.segment || 'home'}>
@@ -21,6 +23,7 @@ export function SidebarNav({ items }: SidebarNavProps) {
               to={navItemPath(item)}
               // end: "/app" solo se marca activo en "/app", no en "/app/vehicles".
               end={item.segment === ''}
+              onClick={onNavigate}
               // NavLink añade aria-current="page" al enlace activo (lo leen los lectores de pantalla).
               className={({ isActive }) => (isActive ? 'sidebar-link sidebar-link--active' : 'sidebar-link')}
             >
