@@ -108,6 +108,7 @@
 
 /* ============================= DataTable ============================= */
 .ui-table-wrap {
+  position: relative; /* contiene a los hijos absolutos (etiquetas ocultas): si no, escapan del recorte y ensanchan la página */
   overflow-x: auto; /* en móvil la tabla se desplaza dentro de su caja, no rompe la página */
   border: 1px solid var(--color-border);
   border-radius: var(--radius-surface);
@@ -190,6 +191,11 @@
 }
 .page-title { font: 600 var(--text-xl) / 1.15 var(--font-sans); letter-spacing: -0.02em; }
 .page-subtitle { max-width: 60ch; color: var(--color-ink-subtle); }
+/* :where() = especificidad 0: cualquier clase propia (p. ej. .login__card) puede sobrescribir el relleno. */
+:where(.page-card) {
+  padding: clamp(var(--space-4), 2.5vw, var(--space-6));
+}
+
 .page-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-surface);
@@ -256,4 +262,17 @@
 }
 .ui-table__row--selected td:first-child {
   box-shadow: inset 3px 0 0 var(--palette-red);
+}
+
+/* Un badge dentro de la cabecera de página no se estira a todo el ancho. */
+.page-header .ui-badge {
+  justify-self: start;
+  inline-size: fit-content;
+}
+
+/* Hijos de rejillas/tarjetas: pueden encogerse por debajo de su contenido (min-width: 0).
+   Sin esto una tabla ancha ENSANCHA la página en móvil en vez de desplazarse dentro de su caja. */
+.page-card > *,
+.page-card {
+  min-width: 0;
 }

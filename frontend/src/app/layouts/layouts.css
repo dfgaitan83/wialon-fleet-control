@@ -50,6 +50,7 @@
 /* ============================ Layout privado ============================ */
 .app-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* móvil: el contenido nunca ensancha la página (sin scroll horizontal) */
   grid-template-rows: auto 1fr; /* móvil: menú arriba, contenido abajo */
   min-height: 100dvh;
 }
@@ -59,9 +60,12 @@
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  background: var(--color-ink); /* tinta oscura derivada del gris de la paleta */
-  color: var(--palette-lavender);
+  /* Menú CLARO: fondo blanco + texto en tinta (>15:1). El usuario reportó que el menú oscuro
+     costaba leerse; el rojo de marca queda para la franja y el indicador de la opción activa. */
+  background: var(--color-surface);
+  color: var(--color-ink);
   border-top: 4px solid var(--color-brand);
+  box-shadow: 0 1px 0 var(--color-border);
 }
 
 .sidebar-nav { min-width: 0; overflow-x: auto; } /* móvil: el menú se desplaza horizontalmente */
@@ -79,7 +83,7 @@
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control);
-  color: color-mix(in srgb, var(--palette-lavender) 78%, transparent);
+  color: var(--color-ink); /* tinta sobre blanco: >15:1 */
   font: 500 var(--text-sm) / 1.2 var(--font-sans);
   text-decoration: none;
   white-space: nowrap;
@@ -88,13 +92,14 @@
     color var(--duration-fast) var(--ease-out);
 }
 .sidebar-link:hover {
-  background: color-mix(in srgb, var(--palette-lavender) 10%, transparent);
-  color: var(--palette-lavender);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
 }
 /* Activo: texto pleno + indicador en el rojo de marca. aria-current lo anuncia al lector. */
 .sidebar-link--active {
-  background: color-mix(in srgb, var(--palette-red) 22%, transparent);
-  color: var(--color-ink-inverse);
+  background: color-mix(in srgb, var(--palette-red) 9%, #fff); /* rosado muy suave de la paleta */
+  color: var(--palette-red-dark); /* #A81A2B sobre ese fondo: >6:1 (AA) */
+  font-weight: 600;
 }
 .sidebar-link--active::before {
   content: '';
@@ -148,8 +153,10 @@
 /* ======================== Escritorio (≥ 900px) ======================== */
 @media (min-width: 900px) {
   .app-shell {
-    grid-template-columns: var(--sidebar-width) 1fr; /* menú lateral fijo + contenido */
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr); /* menú lateral fijo + contenido */
     grid-template-rows: 1fr;
+    /* La columna del menú se pinta del mismo color en páginas largas (sin corte visual bajo el menú fijo). */
+    background: linear-gradient(to right, var(--color-surface) var(--sidebar-width), transparent 0);
   }
   .app-sidebar {
     position: sticky; /* el menú queda fijo al hacer scroll del contenido */
@@ -161,6 +168,7 @@
     padding: var(--space-6) var(--space-3);
     border-top: none;
     border-left: 4px solid var(--color-brand); /* franja de marca en vertical */
+    box-shadow: 1px 0 0 var(--color-border); /* separación sutil del contenido */
   }
   .sidebar-nav { overflow: visible; }
   .sidebar-nav ul { flex-direction: column; }

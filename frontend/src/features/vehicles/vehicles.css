@@ -44,6 +44,7 @@
 
 .vehicles-layout {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* móvil: la tabla se desplaza dentro, no ensancha la página */
   gap: var(--space-4);
 }
 
@@ -58,7 +59,7 @@
   }
 
   .vehicles-layout {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
     align-items: start;
   }
 
