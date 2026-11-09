@@ -13,10 +13,11 @@ import { useAuth } from '@/shared/auth/useAuth'
 import { backendWakeup } from '@/shared/server/backendStatus'
 import { ServerWakeNotice } from '@/shared/server/ServerWakeNotice'
 import { Button } from '@/shared/ui/Button'
+import { PasswordField } from '@/shared/ui/PasswordField'
 import { TextField } from '@/shared/ui/TextField'
 
+import { AuthShell } from './AuthShell'
 import { type LoginFieldErrors, validateLogin } from './loginSchema'
-import './login.css'
 
 const DEFAULT_REDIRECT = '/app'
 const UNEXPECTED_ERROR = 'No se pudo iniciar sesión. Inténtalo de nuevo.'
@@ -69,45 +70,42 @@ export function LoginPage() {
   }
 
   return (
-    <section className="login" aria-labelledby="login-title">
-      <div className="login__card page-card">
-        <header className="page-header">
-          <p className="page-eyebrow">Acceso al panel</p>
-          <h1 id="login-title" className="page-title">
-            Inicia sesión
-          </h1>
-          <p className="login__subtitle">Usa las credenciales que te entregó el administrador.</p>
-        </header>
-
-        {/* noValidate: usamos nuestra validación (mensajes en español y consistentes). */}
-        <form className="login__form" onSubmit={handleSubmit} noValidate>
-          <ServerWakeNotice />
-          {formError && (
-            <p className="ui-alert" role="alert">
-              {formError}
-            </p>
-          )}
-          <TextField
-            label="Correo electrónico"
-            name="email"
-            type="email"
-            autoComplete="username"
-            error={fieldErrors.email}
-            disabled={isSubmitting}
-          />
-          <TextField
-            label="Contraseña"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            error={fieldErrors.password}
-            disabled={isSubmitting}
-          />
-          <Button type="submit" variant="primary" isLoading={isSubmitting}>
-            {isSubmitting ? 'Ingresando…' : 'Ingresar'}
-          </Button>
-        </form>
-      </div>
-    </section>
+    <AuthShell
+      eyebrow="Acceso al panel"
+      title="Inicia sesión"
+      titleId="login-title"
+      subtitle="Usa las credenciales que te entregó el administrador."
+    >
+      {/* noValidate: usamos nuestra validación (mensajes en español y consistentes). */}
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
+        <ServerWakeNotice />
+        {formError && (
+          <p className="ui-alert" role="alert">
+            {formError}
+          </p>
+        )}
+        <TextField
+          label="Correo electrónico"
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="username"
+          placeholder="nombre@empresa.com"
+          error={fieldErrors.email}
+          disabled={isSubmitting}
+        />
+        <PasswordField
+          label="Contraseña"
+          name="password"
+          autoComplete="current-password"
+          error={fieldErrors.password}
+          disabled={isSubmitting}
+        />
+        <Button type="submit" variant="primary" isLoading={isSubmitting}>
+          {isSubmitting ? 'Ingresando…' : 'Ingresar'}
+        </Button>
+        <p className="auth-help">¿Olvidaste tu contraseña? Pide al administrador que la restablezca.</p>
+      </form>
+    </AuthShell>
   )
 }

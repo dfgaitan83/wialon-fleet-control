@@ -191,7 +191,7 @@
 }
 .page-title { font: 600 var(--text-xl) / 1.15 var(--font-sans); letter-spacing: -0.02em; }
 .page-subtitle { max-width: 60ch; color: var(--color-ink-subtle); }
-/* :where() = especificidad 0: cualquier clase propia (p. ej. .login__card) puede sobrescribir el relleno. */
+/* :where() = especificidad 0: cualquier clase propia (p. ej. .users-card) puede sobrescribir el relleno. */
 :where(.page-card) {
   padding: clamp(var(--space-4), 2.5vw, var(--space-6));
 }
@@ -275,4 +275,54 @@
 .page-card > *,
 .page-card {
   min-width: 0;
+}
+
+/* Datos tabulares: números y fechas en una sola línea (no "0 km/h" arriba y "SE" abajo). */
+.ui-table .ui-cell--numeric,
+.ui-table time {
+  white-space: nowrap;
+}
+
+/* Pantallas TÁCTILES: objetivos de al menos 44 px (WCAG 2.5.5 / Apple HIG). Con ratón se
+   conserva la densidad compacta de la tabla, que es lo esperado en un panel de datos. */
+@media (pointer: coarse) {
+  .ui-button--sm {
+    min-height: 2.75rem;
+  }
+}
+/* Campo con acción a la derecha (p. ej. mostrar/ocultar contraseña). */
+.ui-field__control {
+  position: relative;
+}
+
+.ui-field__input--with-action {
+  inline-size: 100%;
+  padding-inline-end: 3rem; /* espacio para el botón: el texto nunca queda debajo */
+}
+
+.ui-field__action {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: grid;
+  place-items: center;
+  inline-size: 2.75rem; /* 44 px: objetivo táctil */
+  border: 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+}
+
+.ui-field__action:hover {
+  color: var(--color-ink);
+}
+
+.ui-field__action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ui-field__action[aria-pressed='true'] {
+  color: var(--palette-red-dark);
 }

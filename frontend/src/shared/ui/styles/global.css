@@ -37,6 +37,7 @@ a {
 
 a:focus-visible,
 button:focus-visible,
+select:focus-visible,
 input:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring); /* foco visible y consistente para navegación con teclado */

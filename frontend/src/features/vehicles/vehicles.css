@@ -167,3 +167,10 @@
 .vehicle-detail__map {
   margin-block-start: var(--space-4);
 }
+
+@media (pointer: coarse) {
+  .vehicles-name__locate {
+    min-height: 2.75rem; /* el enlace pequeño crece a 44 px en pantallas táctiles */
+    font-size: var(--text-sm);
+  }
+}

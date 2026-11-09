@@ -1,0 +1,222 @@
+/*
+ * Pantallas de acceso: panel de marca + formulario. Mobile-first.
+ * Contraste: blanco sobre #A81A2B = 7.2:1 (AAA para texto grande, AA para el normal).
+ */
+.auth {
+  display: grid;
+  overflow: hidden;
+  inline-size: min(64rem, 100%);
+  margin-inline: auto;
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius-surface) * 1.4);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-surface), 0 30px 60px -40px rgb(168 26 43 / 0.45);
+}
+
+/* ------------------------------ Panel de marca ------------------------------ */
+.auth-brand {
+  position: relative;
+  isolation: isolate;
+  padding: var(--space-6);
+  color: #fff;
+  /* Solo colores de la paleta: rojo profundo hacia el rojo de marca. */
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--palette-red) 55%, transparent), transparent 60%),
+    var(--palette-red-dark);
+}
+
+.auth-brand__art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  inline-size: 100%;
+  block-size: 100%;
+  opacity: 0.9;
+}
+
+/* Móvil: la franja es baja y el titular ocupa casi todo: solo líneas suaves, sin paradas
+   que caigan encima del texto (legibilidad primero). */
+.auth-brand__stop,
+.auth-brand__halo {
+  display: none;
+}
+
+.auth-brand__route {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.32);
+  stroke-width: 2.5;
+  stroke-dasharray: 2 9;
+  stroke-linecap: round;
+}
+
+.auth-brand__route--faint {
+  stroke: rgb(255 255 255 / 0.14);
+}
+
+/* Teal #1E8C93 = "señal viva", el MISMO significado que en el mapa y los estados de la app.
+   Borde blanco: el teal contrasta poco con el rojo, el anillo lo separa (3:1+ como gráfico). */
+.auth-brand__stop {
+  fill: var(--palette-teal);
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+
+.auth-brand__halo {
+  fill: color-mix(in srgb, var(--palette-teal) 55%, #fff);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: auth-pulse 2.8s var(--ease-out, ease-out) infinite;
+}
+
+@keyframes auth-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+.auth-brand__content {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.auth-brand__eyebrow {
+  margin: 0;
+  font: 600 var(--text-xs) / 1 var(--font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.auth-brand__headline {
+  margin: 0;
+  font: 700 clamp(1.5rem, 1.1rem + 1.6vw, 2.4rem) / 1.12 var(--font-sans);
+  letter-spacing: -0.02em;
+}
+
+/* En móvil la franja de marca es compacta: los beneficios solo desde tablet. */
+.auth-brand__benefits {
+  display: none;
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-brand__benefits li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.auth-brand__check {
+  display: grid;
+  place-items: center;
+  inline-size: 1.9rem;
+  block-size: 1.9rem;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.16);
+  border: 1px solid rgb(255 255 255 / 0.3);
+}
+
+.auth-brand__benefits strong {
+  display: block;
+  font: 600 var(--text-base, 1rem) / 1.3 var(--font-sans);
+}
+
+.auth-brand__benefit-text {
+  display: block;
+  font-size: var(--text-sm);
+  opacity: 0.9;
+}
+
+/* -------------------------------- Formulario -------------------------------- */
+.auth-panel {
+  display: grid;
+  gap: var(--space-6);
+  align-content: center;
+  padding: var(--space-8) var(--space-6);
+}
+
+.auth-panel__header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.auth-panel__header .page-eyebrow {
+  margin: 0;
+}
+
+.auth-panel__title {
+  margin: 0;
+  font: 700 clamp(1.6rem, 1.3rem + 1vw, 2rem) / 1.15 var(--font-sans);
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+.auth-panel__subtitle {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.auth-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.auth-form .ui-button {
+  min-height: 3rem; /* acción principal: objetivo grande y claro */
+  margin-block-start: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.auth-help {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+  text-align: center;
+}
+
+/* --------------------------------- Tablet + --------------------------------- */
+@media (min-width: 48rem) {
+  .auth {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-block-size: 34rem;
+  }
+
+  .auth-brand {
+    display: grid;
+    align-content: end;
+    padding: var(--space-8);
+  }
+
+  .auth-brand__benefits {
+    display: grid;
+  }
+
+  /* Escritorio: el dibujo ocupa la mitad SUPERIOR y el texto la inferior: nunca se cruzan. */
+  .auth-brand__art {
+    block-size: 55%;
+  }
+
+  .auth-brand__stop,
+  .auth-brand__halo {
+    display: inline;
+  }
+
+  .auth-panel {
+    padding: var(--space-8) clamp(var(--space-6), 4vw, 3.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-brand__halo {
+    animation: none;
+  }
+}

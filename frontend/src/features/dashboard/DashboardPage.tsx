@@ -22,6 +22,13 @@ const STATUS_COLORS = {
   offline: 'var(--palette-gray)',
 } as const
 
+const percentFormat = new Intl.NumberFormat('es-CO', { style: 'percent', maximumFractionDigits: 0 })
+
+/** "85 %": la conclusión del gráfico en texto (no depender solo del color ni de leer el gráfico). */
+function percent(part: number, total: number): string {
+  return percentFormat.format(total ? part / total : 0)
+}
+
 interface KpiProps {
   readonly label: string
   readonly value: number | string
@@ -56,7 +63,17 @@ export function DashboardPage() {
         </p>
       </header>
 
-      {summary.isPending && <p className="ui-page-status" role="status">Cargando indicadores…</p>}
+      {summary.isPending && (
+        // Esqueletos con la MISMA forma que las tarjetas: sin saltos de layout al llegar los datos.
+        <div className="kpi-grid" role="status" aria-label="Cargando indicadores">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="kpi" aria-hidden="true">
+              <span className="ui-skeleton" style={{ inlineSize: '60%' }} />
+              <span className="ui-skeleton kpi__skeleton-value" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {summary.isError && (
         <div className="page-card">
@@ -96,6 +113,10 @@ export function DashboardPage() {
                   color: STATUS_COLORS[status],
                 }))}
               />
+              <p className="dashboard-insight">
+                {percent(summary.data.byStatus.moving + summary.data.byStatus.stopped, summary.data.totalVehicles)} de
+                la flota reportó en los últimos 30 minutos.
+              </p>
             </article>
             <article className="page-card" aria-labelledby="chart-drivers">
               <h2 id="chart-drivers" className="dashboard-chart-title">
@@ -108,6 +129,10 @@ export function DashboardPage() {
                   { label: 'Sin conductor', value: summary.data.withoutDriver, color: 'var(--palette-red)' },
                 ]}
               />
+              <p className="dashboard-insight">
+                <strong>{summary.data.withoutDriver}</strong> de {summary.data.totalVehicles} vehículos (
+                {percent(summary.data.withoutDriver, summary.data.totalVehicles)}) no tienen conductor asignado.
+              </p>
             </article>
           </div>
         </>

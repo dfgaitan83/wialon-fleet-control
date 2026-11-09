@@ -12,10 +12,10 @@ import { Navigate } from 'react-router-dom'
 import { ApiError } from '@/shared/api/problem'
 import { useAuth } from '@/shared/auth/useAuth'
 import { Button } from '@/shared/ui/Button'
-import { TextField } from '@/shared/ui/TextField'
+import { PasswordField } from '@/shared/ui/PasswordField'
 
 import { type ChangePasswordErrors, PASSWORD_MIN_LENGTH, validateChangePassword } from './changePasswordSchema'
-import './login.css'
+import { AuthShell } from './AuthShell'
 
 const APP_HOME = '/app'
 const UNEXPECTED_ERROR = 'No se pudo cambiar la contraseña. Inténtalo de nuevo.'
@@ -80,56 +80,48 @@ export function ChangePasswordPage() {
   }
 
   return (
-    <section className="login" aria-labelledby="change-password-title">
-      <div className="login__card page-card">
-        <header className="page-header">
-          <p className="page-eyebrow">Seguridad de la cuenta</p>
-          <h1 id="change-password-title" className="page-title">
-            {isMandatory ? 'Crea tu contraseña' : 'Cambiar contraseña'}
-          </h1>
-          <p className="login__subtitle">
-            {isMandatory
-              ? 'Estás usando una contraseña temporal. Para continuar, elige una nueva que solo tú conozcas.'
-              : 'Al cambiarla se cerrarán tus otras sesiones abiertas.'}
+    <AuthShell
+      eyebrow="Seguridad de la cuenta"
+      title={isMandatory ? 'Crea tu contraseña' : 'Cambiar contraseña'}
+      titleId="change-password-title"
+      subtitle={
+        isMandatory
+          ? 'Estás usando una contraseña temporal. Para continuar, elige una nueva que solo tú conozcas.'
+          : 'Al cambiarla se cerrarán tus otras sesiones abiertas.'
+      }
+    >
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
+        {formError && (
+          <p className="ui-alert" role="alert">
+            {formError}
           </p>
-        </header>
-
-        <form className="login__form" onSubmit={handleSubmit} noValidate>
-          {formError && (
-            <p className="ui-alert" role="alert">
-              {formError}
-            </p>
-          )}
-          <TextField
-            label={isMandatory ? 'Contraseña temporal' : 'Contraseña actual'}
-            name="currentPassword"
-            type="password"
-            autoComplete="current-password"
-            error={fieldErrors.currentPassword}
-            disabled={isSubmitting}
-          />
-          <TextField
-            label="Nueva contraseña"
-            name="newPassword"
-            type="password"
-            autoComplete="new-password"
-            hint={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres, con letras y números.`}
-            error={fieldErrors.newPassword}
-            disabled={isSubmitting}
-          />
-          <TextField
-            label="Repite la nueva contraseña"
-            name="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            error={fieldErrors.confirmPassword}
-            disabled={isSubmitting}
-          />
-          <Button type="submit" variant="primary" isLoading={isSubmitting}>
-            {isSubmitting ? 'Guardando…' : 'Guardar contraseña'}
-          </Button>
-        </form>
-      </div>
-    </section>
+        )}
+        <PasswordField
+          label={isMandatory ? 'Contraseña temporal' : 'Contraseña actual'}
+          name="currentPassword"
+          autoComplete="current-password"
+          error={fieldErrors.currentPassword}
+          disabled={isSubmitting}
+        />
+        <PasswordField
+          label="Nueva contraseña"
+          name="newPassword"
+          autoComplete="new-password"
+          hint={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres, con letras y números.`}
+          error={fieldErrors.newPassword}
+          disabled={isSubmitting}
+        />
+        <PasswordField
+          label="Repite la nueva contraseña"
+          name="confirmPassword"
+          autoComplete="new-password"
+          error={fieldErrors.confirmPassword}
+          disabled={isSubmitting}
+        />
+        <Button type="submit" variant="primary" isLoading={isSubmitting}>
+          {isSubmitting ? 'Guardando…' : 'Guardar contraseña'}
+        </Button>
+      </form>
+    </AuthShell>
   )
 }
