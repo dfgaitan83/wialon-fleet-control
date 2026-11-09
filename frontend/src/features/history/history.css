@@ -75,7 +75,8 @@
 }
 
 @media (min-width: 640px) {
-  .history-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Vehículo ocupa fila completa; fechas y botón comparten la fila siguiente */
+  .history-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
   .history-form__vehicle { grid-column: 1 / -1; }
 }
 @media (min-width: 1100px) {
