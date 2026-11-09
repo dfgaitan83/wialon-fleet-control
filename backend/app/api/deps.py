@@ -24,6 +24,7 @@ from app.api.cookies import ACCESS_COOKIE
 from app.application.audit_service import AuditService
 from app.application.auth_service import AuthPolicy, AuthService
 from app.application.errors import PasswordChangeRequired, PermissionDenied
+from app.application.user_service import UserService
 from app.core.clock import utc_now
 from app.core.config import Settings
 from app.domain.permissions import Permission
@@ -31,6 +32,7 @@ from app.domain.users import User
 from app.infrastructure.db.repositories import (
     SqlAuditLog,
     SqlRefreshTokenStore,
+    SqlRoleCatalog,
     SqlUnitOfWork,
     SqlUserRepository,
 )
@@ -70,6 +72,21 @@ def get_auth_service(request: Request, session: SessionDep) -> AuthService:
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+def get_user_service(request: Request, session: SessionDep) -> UserService:
+    return UserService(
+        users=SqlUserRepository(session, clock=utc_now),
+        roles=SqlRoleCatalog(session),
+        refresh_tokens=SqlRefreshTokenStore(session, clock=utc_now),
+        hasher=request.app.state.password_hasher,
+        audit=get_audit_service(session),
+        uow=SqlUnitOfWork(session),
+        clock=utc_now,
+    )
+
+
+UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 
 
 def client_ip(request: Request) -> str | None:

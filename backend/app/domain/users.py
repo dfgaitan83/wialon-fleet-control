@@ -5,6 +5,8 @@ objeto NUEVO con ``dataclasses.replace``; el repositorio persiste ese objeto.
 """
 
 import re
+import secrets
+import string
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
@@ -53,6 +55,22 @@ class User:
 # Al menos una letra y un dígito: impide "aaaaaaaaaaaa" o "123456789012".
 _HAS_LETTER = re.compile(r"[^\W\d_]")
 _HAS_DIGIT = re.compile(r"\d")
+
+
+TEMPORARY_PASSWORD_LENGTH = 16
+# Sin caracteres ambiguos (0/O, 1/l/I): el Admin la dicta o copia al usuario sin errores.
+_TEMP_ALPHABET = "".join(c for c in string.ascii_letters + string.digits if c not in "0O1lI")
+
+
+def generate_temporary_password() -> str:
+    """Contraseña temporal aleatoria (CSPRNG) que cumple la política (RF-06).
+
+    Solo sirve para el primer ingreso: ``must_change_password`` obliga a cambiarla.
+    """
+    while True:  # reintenta (casi nunca) hasta tener letras Y dígitos
+        candidate = "".join(secrets.choice(_TEMP_ALPHABET) for _ in range(TEMPORARY_PASSWORD_LENGTH))
+        if _HAS_LETTER.search(candidate) and _HAS_DIGIT.search(candidate):
+            return candidate
 
 
 def password_policy_errors(password: str, email: str) -> list[str]:
