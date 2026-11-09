@@ -1,5 +1,5 @@
 /**
- * Flujo de sesión completo: login, restauración tras F5, token inválido, 401 y guardias.
+ * Flujo de sesión completo: login, restauración tras F5, sesión expirada, refresh y guardias.
  * La red se simula con mockApi: se prueban el AuthProvider, el cliente axios y
  * sus interceptores REALES trabajando juntos.
  */
@@ -9,17 +9,18 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { apiClient } from '@/shared/api/client'
+import { clearCsrfCookie, setCsrfCookie } from '@/test/cookies'
 import { type MockHandler, mockApi } from '@/test/mockAdapter'
+import { userDto } from '@/test/users'
 
 import { authApi } from './authApi'
 import { AuthProvider } from './AuthProvider'
 import { RequireAuth } from './RequireAuth'
 import { RequirePermission } from './RequirePermission'
-import { tokenStorage } from './tokenStorage'
 import { useAuth } from './useAuth'
 
-const ADMIN = { id: '1', email: 'admin@demo.co', full_name: 'Admin Demo', permissions: ['*:*'] }
-const OPERATOR = { id: '2', email: 'op@demo.co', full_name: 'Operador', permissions: ['vehicles:read'] }
+const ADMIN = userDto()
+const OPERATOR = userDto({ id: 2, full_name: 'Operador', role: 'operator', permissions: ['vehicles:read'] })
 
 /** Componente de prueba que muestra el estado de la sesión y permite login/logout. */
 function SessionProbe() {
@@ -29,7 +30,7 @@ function SessionProbe() {
       <p>estado: {status}</p>
       <p>usuario: {user?.fullName ?? 'ninguno'}</p>
       <button onClick={() => void login({ email: 'admin@demo.co', password: 'x' })}>entrar</button>
-      <button onClick={logout}>salir</button>
+      <button onClick={() => void logout()}>salir</button>
     </div>
   )
 }
@@ -66,80 +67,110 @@ describe('AuthProvider + guardias', () => {
     restore = mockApi(handler)
   }
 
-  beforeEach(() => tokenStorage.clear())
+  beforeEach(() => clearCsrfCookie())
   afterEach(() => restore())
 
-  it('sin sesión, una ruta protegida redirige a /login', () => {
+  it('sin indicio de sesión: anónimo al instante y SIN peticiones al backend', () => {
+    const handler = vi.fn(() => ({ status: 500 }))
+    useApi(handler)
+
     renderApp()
 
     expect(screen.getByText('pantalla de login')).toBeInTheDocument()
     expect(screen.getByText('estado: anonymous')).toBeInTheDocument()
+    expect(handler).not.toHaveBeenCalled()
   })
 
-  it('login correcto guarda el token y abre la sesión', async () => {
-    useApi(() => ({ status: 200, data: { access_token: 'jwt-admin', token_type: 'bearer', user: ADMIN } }))
+  it('login correcto abre la sesión con el usuario que devuelve el backend', async () => {
+    useApi(() => ({ status: 200, data: { user: ADMIN } }))
     renderApp('/login')
 
     await userEvent.click(screen.getByRole('button', { name: 'entrar' }))
 
     expect(await screen.findByText('estado: authenticated')).toBeInTheDocument()
     expect(screen.getByText('usuario: Admin Demo')).toBeInTheDocument()
-    expect(tokenStorage.get()).toBe('jwt-admin')
   })
 
-  it('tras un F5 con token válido, restaura la sesión con /auth/me', async () => {
-    tokenStorage.set('jwt-guardado')
-    useApi((config) =>
-      config.url === '/auth/me' ? { status: 200, data: ADMIN } : { status: 404, data: null },
-    )
+  it('tras un F5 con sesión, la restaura con /auth/me sin "parpadeo" a /login', async () => {
+    setCsrfCookie()
+    useApi((config) => (config.url === '/auth/me' ? { status: 200, data: ADMIN } : { status: 404 }))
 
     renderApp()
 
-    expect(screen.getByText('Verificando sesión…')).toBeInTheDocument() // sin "parpadeo" a /login
+    expect(screen.getByText('Verificando sesión…')).toBeInTheDocument()
     expect(await screen.findByText('zona privada')).toBeInTheDocument()
   })
 
-  it('tras un F5 con token expirado, borra el token y manda a /login', async () => {
-    tokenStorage.set('jwt-expirado')
-    useApi(() => ({ status: 401, data: { title: 'Token expirado', status: 401 } }))
+  it('tras un F5 con el access expirado, renueva la sesión sola y entra', async () => {
+    setCsrfCookie()
+    let refreshed = false
+    useApi((config) => {
+      if (config.url === '/auth/refresh') {
+        refreshed = true
+        return { status: 200, data: { user: ADMIN } }
+      }
+      return refreshed ? { status: 200, data: ADMIN } : { status: 401, data: { title: 'x', status: 401 } }
+    })
+
+    renderApp()
+
+    expect(await screen.findByText('zona privada')).toBeInTheDocument()
+  })
+
+  it('tras un F5 con la sesión vencida del todo, manda a /login', async () => {
+    setCsrfCookie()
+    useApi(() => ({ status: 401, data: { title: 'Sesión expirada', status: 401 } }))
 
     renderApp()
 
     expect(await screen.findByText('pantalla de login')).toBeInTheDocument()
-    expect(tokenStorage.get()).toBeNull()
   })
 
-  it('un 401 en CUALQUIER petición posterior cierra la sesión automáticamente', async () => {
-    tokenStorage.set('jwt-valido')
-    let expired = false
-    useApi((config) => {
-      if (config.url === '/auth/me') return { status: 200, data: ADMIN }
-      expired = true
-      return { status: 401, data: { title: 'Token expirado', status: 401 } }
-    })
+  it('si una petición posterior no logra renovar la sesión, se cierra automáticamente', async () => {
+    setCsrfCookie()
+    useApi((config) =>
+      config.url === '/auth/me' ? { status: 200, data: ADMIN } : { status: 401, data: { title: 'x', status: 401 } },
+    )
     renderApp()
     await screen.findByText('zona privada')
 
-    await apiClient.get('/vehicles').catch(() => undefined) // el backend responde 401
+    await apiClient.get('/vehicles').catch(() => undefined) // 401 y el refresh también 401
 
-    expect(expired).toBe(true)
     expect(await screen.findByText('pantalla de login')).toBeInTheDocument()
   })
 
-  it('logout borra el token y vuelve a /login', async () => {
-    tokenStorage.set('jwt-valido')
-    useApi(() => ({ status: 200, data: ADMIN }))
+  it('logout avisa al SERVIDOR (POST /auth/logout con CSRF) y vuelve a /login', async () => {
+    setCsrfCookie('csrf-xyz')
+    let logoutHeader: unknown
+    useApi((config) => {
+      if (config.url === '/auth/logout') {
+        logoutHeader = config.headers.get('X-CSRF-Token')
+        return { status: 204 }
+      }
+      return { status: 200, data: ADMIN }
+    })
     renderApp()
     await screen.findByText('zona privada')
 
     await userEvent.click(screen.getByRole('button', { name: 'salir' }))
 
-    expect(screen.getByText('pantalla de login')).toBeInTheDocument()
-    expect(tokenStorage.get()).toBeNull()
+    expect(await screen.findByText('pantalla de login')).toBeInTheDocument()
+    expect(logoutHeader).toBe('csrf-xyz')
+  })
+
+  it('aunque el logout falle por red, la UI sale de la sesión', async () => {
+    setCsrfCookie()
+    useApi((config) => (config.url === '/auth/logout' ? 'network-error' : { status: 200, data: ADMIN }))
+    renderApp()
+    await screen.findByText('zona privada')
+
+    await userEvent.click(screen.getByRole('button', { name: 'salir' }))
+
+    expect(await screen.findByText('pantalla de login')).toBeInTheDocument()
   })
 
   it('RequirePermission oculta la sección si falta el permiso', async () => {
-    tokenStorage.set('jwt-operador')
+    setCsrfCookie()
     useApi(() => ({ status: 200, data: OPERATOR }))
 
     renderApp('/usuarios')
@@ -148,8 +179,8 @@ describe('AuthProvider + guardias', () => {
     expect(screen.queryByText('gestión de usuarios')).not.toBeInTheDocument()
   })
 
-  it('RequirePermission muestra la sección al administrador (*:*)', async () => {
-    tokenStorage.set('jwt-admin')
+  it('RequirePermission muestra la sección al administrador (permiso explícito)', async () => {
+    setCsrfCookie()
     useApi(() => ({ status: 200, data: ADMIN }))
 
     renderApp('/usuarios')

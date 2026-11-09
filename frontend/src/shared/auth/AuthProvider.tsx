@@ -1,11 +1,14 @@
 /**
  * Proveedor de sesión: guarda quién está logueado y lo comparte con toda la app.
  *
- * Ciclo de vida:
- * 1. Al cargar la app: si hay token guardado (tras un F5) -> status "checking" y se
- *    valida con GET /auth/me. Si es válido -> "authenticated"; si no -> "anonymous".
- * 2. login(): POST /auth/login -> guarda token -> "authenticated".
- * 3. logout() o cualquier 401 del backend -> borra token -> "anonymous".
+ * Ciclo de vida (sesión en cookies HttpOnly: el JS no ve los tokens):
+ * 1. Al cargar la app: si existe la cookie CSRF (indicio de sesión, tras un F5)
+ *    -> status "checking" y se valida con GET /auth/me. Si el access expiró, el
+ *    cliente HTTP lo renueva solo (refresh). Válido -> "authenticated"; si no -> "anonymous".
+ *    Sin cookie CSRF -> "anonymous" al instante, sin ninguna petición.
+ * 2. login(): POST /auth/login -> el backend fija las cookies -> "authenticated".
+ * 3. logout(): POST /auth/logout (el SERVIDOR invalida la sesión) -> "anonymous".
+ * 4. Si una renovación falla en cualquier petición -> "anonymous".
  *
  * SOLID — Inversión de dependencias: este componente NO importa authApi. Recibe
  * un `service` que cumple el puerto AuthService (ver types.ts). Quién lo crea
@@ -14,10 +17,10 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 
 import { setUnauthorizedHandler } from '@/shared/api/client'
+import { hasSessionHint } from '@/shared/api/csrf'
 
 import { AuthContext } from './AuthContext'
 import { userHasPermission } from './permissions'
-import { tokenStorage } from './tokenStorage'
 import type {
   AuthContextValue,
   AuthService,
@@ -40,21 +43,18 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ service, children }: AuthProviderProps) {
-  // Inicialización perezosa: se decide UNA vez, al montar, si hay que validar un token.
+  // Inicialización perezosa: se decide UNA vez, al montar, si hay que validar una sesión.
   const [state, setState] = useState<AuthState>(() =>
-    tokenStorage.get() ? { status: 'checking', user: null } : ANONYMOUS,
+    hasSessionHint() ? { status: 'checking', user: null } : ANONYMOUS,
   )
 
-  // logout estable (useCallback): se registra como handler del 401 y no cambia entre renders.
-  const logout = useCallback(() => {
-    tokenStorage.clear() // 1) olvidar el token
-    setState(ANONYMOUS) // 2) la UI pasa a modo anónimo -> RequireAuth redirige a /login
-  }, [])
+  // Sesión perdida (la renovación falló): solo se limpia el estado local.
+  const dropSession = useCallback(() => setState(ANONYMOUS), [])
 
-  // Al recibir un 401 en cualquier petición, el cliente axios llamará a logout.
-  useEffect(() => setUnauthorizedHandler(logout), [logout]) // devuelve la función de limpieza
+  // Si el cliente axios no logra renovar la sesión, avisará aquí.
+  useEffect(() => setUnauthorizedHandler(dropSession), [dropSession]) // devuelve la limpieza
 
-  // Validación del token guardado (solo si status = "checking").
+  // Validación de la sesión existente (solo si status = "checking").
   const isChecking = state.status === 'checking'
   useEffect(() => {
     if (!isChecking) return
@@ -65,23 +65,30 @@ export function AuthProvider({ service, children }: AuthProviderProps) {
         if (!cancelled) setState({ status: 'authenticated', user })
       })
       .catch(() => {
-        // Token inválido/expirado o backend caído: sesión cerrada de forma segura.
-        if (!cancelled) logout()
+        // Sesión inválida/expirada o backend caído: modo anónimo de forma segura.
+        if (!cancelled) setState(ANONYMOUS)
       })
     return () => {
       cancelled = true // React StrictMode monta/desmonta dos veces en desarrollo
     }
-  }, [isChecking, logout, service])
+  }, [isChecking, service])
 
   const login = useCallback(
     async (credentials: LoginCredentials) => {
       // Si falla, el ApiError se propaga al formulario de login para mostrar el mensaje.
-      const { accessToken, user } = await service.login(credentials)
-      tokenStorage.set(accessToken)
+      const user = await service.login(credentials)
       setState({ status: 'authenticated', user })
     },
     [service],
   )
+
+  // logout NUNCA rechaza: salir debe funcionar siempre para el usuario. Si el servidor
+  // no responde (sin red), la UI sale igual; la sesión del servidor caduca sola o se
+  // revoca en el siguiente login/cambio de contraseña. Decisión documentada en el README.
+  const logout = useCallback(async () => {
+    await service.logout().catch(() => undefined) // el servidor revoca el refresh y borra cookies
+    setState(ANONYMOUS)
+  }, [service])
 
   const hasPermission = useCallback(
     (permission: Permission) => userHasPermission(state.user, permission),

@@ -3,9 +3,8 @@ export { AuthProvider } from './AuthProvider'
 export { userHasPermission } from './permissions'
 export { RequireAuth } from './RequireAuth'
 export { RequirePermission } from './RequirePermission'
-export { tokenStorage } from './tokenStorage'
 export {
-  ALL_PERMISSIONS,
+  APP_PERMISSIONS,
   LOGIN_PATH,
   type AuthStatus,
   type AuthUser,

@@ -9,13 +9,14 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/shared/api/problem'
 import { AuthProvider } from '@/shared/auth/AuthProvider'
-import { tokenStorage } from '@/shared/auth/tokenStorage'
 import type { AuthService, AuthUser, Permission } from '@/shared/auth/types'
+import { clearCsrfCookie, setCsrfCookie } from '@/test/cookies'
+import { authUser } from '@/test/users'
 
 import { routes } from './router'
 
-function user(permissions: Permission[]): AuthUser {
-  return { id: '1', email: 'ana@flota.co', fullName: 'Ana Gómez', permissions }
+function user(permissions?: Permission[]): AuthUser {
+  return authUser(permissions)
 }
 
 /** AuthService falso: acepta la contraseña "correcta" y devuelve el usuario indicado. */
@@ -23,13 +24,14 @@ function fakeService(sessionUser: AuthUser): AuthService {
   return {
     login: async ({ password }) => {
       if (password !== 'correcta') throw new ApiError(401, 'Email o contraseña incorrectos')
-      return { accessToken: 'jwt', user: sessionUser }
+      return sessionUser
     },
     me: async () => sessionUser,
+    logout: async () => undefined,
   }
 }
 
-function renderAt(path: string, service: AuthService = fakeService(user(['*:*']))) {
+function renderAt(path: string, service: AuthService = fakeService(user())) {
   const router = createMemoryRouter(routes, { initialEntries: [path] }) // rutas REALES en memoria
   render(
     <AuthProvider service={service}>
@@ -46,7 +48,7 @@ async function loginAs(password = 'correcta') {
 }
 
 describe('Router y layouts', () => {
-  beforeEach(() => tokenStorage.clear())
+  beforeEach(() => clearCsrfCookie())
 
   it('"/" muestra la landing dentro del PublicLayout con acceso a "Ingresar"', () => {
     renderAt('/')
@@ -96,8 +98,8 @@ describe('Router y layouts', () => {
     expect(within(nav).getByRole('link', { name: 'Vehículos' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('el administrador (*:*) ve los 7 módulos del menú', async () => {
-    tokenStorage.set('jwt')
+  it('el administrador ve los 7 módulos del menú', async () => {
+    setCsrfCookie()
     renderAt('/app')
 
     const nav = await screen.findByRole('navigation', { name: 'Principal' })
@@ -107,7 +109,7 @@ describe('Router y layouts', () => {
   })
 
   it('un visualizador no ve "Usuarios" y si escribe la URL ve "Acceso restringido"', async () => {
-    tokenStorage.set('jwt')
+    setCsrfCookie()
     renderAt('/app/users', fakeService(user(['dashboard:read', 'vehicles:read'])))
 
     const nav = await screen.findByRole('navigation', { name: 'Principal' })
@@ -117,18 +119,17 @@ describe('Router y layouts', () => {
   })
 
   it('"Cerrar sesión" borra la sesión y vuelve a la landing', async () => {
-    tokenStorage.set('jwt')
+    setCsrfCookie()
     renderAt('/app')
     await screen.findByText('Ana Gómez')
 
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     expect(screen.getByRole('heading', { level: 1, name: /Tu flota/ })).toBeInTheDocument()
-    expect(tokenStorage.get()).toBeNull()
   })
 
   it('con sesión activa, /login redirige al panel', async () => {
-    tokenStorage.set('jwt')
+    setCsrfCookie()
     const router = renderAt('/login')
 
     await screen.findByRole('navigation', { name: 'Principal' })

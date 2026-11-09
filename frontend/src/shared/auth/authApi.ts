@@ -1,17 +1,14 @@
 /**
- * Llamadas de autenticación al backend y CONTRATO que el backend debe cumplir.
+ * Llamadas de autenticación al backend (/api/v1/auth) y validación de su contrato.
  *
- * ⚠ Estado: estos endpoints AÚN NO existen en el backend (hoy solo hay /health).
- * Este archivo define el contrato; el backend lo implementará en su meta de auth:
+ * Contrato (ver backend/app/api/v1/auth.py y Swagger):
+ *   POST /auth/login   { email, password } -> 200 { user: UserOut } + cookies de sesión
+ *                                          -> 401 Problem Details (mensaje genérico)
+ *   GET  /auth/me                          -> 200 UserOut | 401
+ *   POST /auth/logout  (X-CSRF-Token)      -> 204, el servidor invalida la sesión
+ *   UserOut = { id, email, full_name, role, role_label, permissions[], must_change_password }
  *
- *   POST /api/v1/auth/login   body: { "email": "...", "password": "..." }
- *     200 -> { "access_token": "<jwt>", "token_type": "bearer",
- *              "user": { "id": "1", "email": "...", "full_name": "...", "permissions": ["*:*"] } }
- *     401 -> Problem Details (credenciales incorrectas)
- *
- *   GET  /api/v1/auth/me      header: Authorization: Bearer <jwt>
- *     200 -> { "id": "1", "email": "...", "full_name": "...", "permissions": [...] }
- *     401 -> Problem Details (token inválido o expirado)
+ * Los tokens NUNCA llegan en el cuerpo: viajan en cookies HttpOnly.
  *
  * ¿Por qué validar con zod? "Nunca confiar en datos externos": si el backend
  * cambia un campo, se detecta AQUÍ con un error claro y no como un "undefined"
@@ -22,7 +19,7 @@ import { z } from 'zod'
 import { apiClient } from '@/shared/api/client'
 import { ApiError } from '@/shared/api/problem'
 
-import type { AuthService, AuthUser, LoginCredentials, LoginResult, Permission } from './types'
+import type { AuthService, AuthUser, LoginCredentials, Permission } from './types'
 
 const INVALID_RESPONSE_STATUS = 502 // "Bad Gateway": el servidor respondió algo inesperado
 
@@ -31,14 +28,13 @@ const userDtoSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String), // acepta id numérico o texto
   email: z.email(),
   full_name: z.string(),
+  role: z.string(),
+  role_label: z.string(),
   permissions: z.array(z.string().regex(/^[^:]+:[^:]+$/)), // formato "recurso:acción"
+  must_change_password: z.boolean(),
 })
 
-const loginResponseSchema = z.object({
-  access_token: z.string().min(1),
-  token_type: z.string().toLowerCase().pipe(z.literal('bearer')), // solo aceptamos Bearer
-  user: userDtoSchema,
-})
+const sessionSchema = z.object({ user: userDtoSchema })
 
 type UserDto = z.infer<typeof userDtoSchema>
 
@@ -48,7 +44,10 @@ function toAuthUser(dto: UserDto): AuthUser {
     id: dto.id,
     email: dto.email,
     fullName: dto.full_name,
+    role: dto.role,
+    roleLabel: dto.role_label,
     permissions: dto.permissions as Permission[], // el regex ya garantizó el formato
+    mustChangePassword: dto.must_change_password,
   }
 }
 
@@ -63,16 +62,20 @@ function parseOrThrow<T>(schema: z.ZodType<T>, data: unknown): T {
 
 /** Implementación HTTP REAL del puerto AuthService (adaptador hacia nuestro backend). */
 export const authApi: AuthService = {
-  /** Inicia sesión. Errores (401, red...) llegan como ApiError gracias al interceptor. */
-  async login(credentials: LoginCredentials): Promise<LoginResult> {
+  /** Inicia sesión. El backend responde el usuario y fija las cookies de sesión. */
+  async login(credentials: LoginCredentials): Promise<AuthUser> {
     const { data } = await apiClient.post<unknown>('/auth/login', credentials) // unknown: se valida abajo
-    const parsed = parseOrThrow(loginResponseSchema, data)
-    return { accessToken: parsed.access_token, user: toAuthUser(parsed.user) }
+    return toAuthUser(parseOrThrow(sessionSchema, data).user)
   },
 
   /** Usuario de la sesión actual (se usa tras recargar la página). */
   async me(): Promise<AuthUser> {
     const { data } = await apiClient.get<unknown>('/auth/me')
     return toAuthUser(parseOrThrow(userDtoSchema, data))
+  },
+
+  /** Cierra la sesión EN EL SERVIDOR (revoca el refresh token y borra las cookies). */
+  async logout(): Promise<void> {
+    await apiClient.post('/auth/logout')
   },
 }

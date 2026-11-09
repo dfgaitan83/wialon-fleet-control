@@ -2,10 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/shared/api/problem'
 import { mockApi } from '@/test/mockAdapter'
+import { userDto } from '@/test/users'
 
 import { authApi } from './authApi'
-
-const USER_DTO = { id: 1, email: 'admin@demo.co', full_name: 'Admin Demo', permissions: ['*:*'] }
 
 describe('authApi (contrato con el backend)', () => {
   let restore: () => void = () => {}
@@ -15,20 +14,25 @@ describe('authApi (contrato con el backend)', () => {
     let sentBody: unknown
     restore = mockApi((config) => {
       sentBody = JSON.parse(String(config.data))
-      return { status: 200, data: { access_token: 'jwt', token_type: 'Bearer', user: USER_DTO } }
+      return { status: 200, data: { user: userDto({ permissions: ['vehicles:read'] }) } }
     })
 
-    const result = await authApi.login({ email: 'admin@demo.co', password: 'x' })
+    const user = await authApi.login({ email: 'admin@demo.co', password: 'x' })
 
     expect(sentBody).toEqual({ email: 'admin@demo.co', password: 'x' })
-    expect(result).toEqual({
-      accessToken: 'jwt',
-      user: { id: '1', email: 'admin@demo.co', fullName: 'Admin Demo', permissions: ['*:*'] },
+    expect(user).toEqual({
+      id: '1',
+      email: 'admin@demo.co',
+      fullName: 'Admin Demo',
+      role: 'admin',
+      roleLabel: 'Administrador',
+      permissions: ['vehicles:read'],
+      mustChangePassword: false,
     })
   })
 
   it('rechaza una respuesta que no cumple el contrato (no sigue con datos rotos)', async () => {
-    restore = mockApi(() => ({ status: 200, data: { token: 'falta-access_token' } }))
+    restore = mockApi(() => ({ status: 200, data: { user: { email: 'a@b.co' } } }))
 
     await expect(authApi.login({ email: 'a@b.co', password: 'x' })).rejects.toMatchObject({
       status: 502,
@@ -37,20 +41,32 @@ describe('authApi (contrato con el backend)', () => {
   })
 
   it('me() devuelve el usuario de la sesión', async () => {
-    restore = mockApi(() => ({ status: 200, data: USER_DTO }))
+    restore = mockApi(() => ({ status: 200, data: userDto() }))
 
-    await expect(authApi.me()).resolves.toMatchObject({ fullName: 'Admin Demo' })
+    await expect(authApi.me()).resolves.toMatchObject({ fullName: 'Admin Demo', roleLabel: 'Administrador' })
+  })
+
+  it('logout hace POST /auth/logout', async () => {
+    let request: { method?: string; url?: string } = {}
+    restore = mockApi((config) => {
+      request = { method: config.method, url: config.url }
+      return { status: 204 }
+    })
+
+    await authApi.logout()
+
+    expect(request).toEqual({ method: 'post', url: '/auth/logout' })
   })
 
   it('credenciales incorrectas llegan como ApiError 401 con el mensaje del servidor', async () => {
     restore = mockApi(() => ({
       status: 401,
-      data: { title: 'No autorizado', status: 401, detail: 'Email o contraseña incorrectos' },
+      data: { title: 'No autenticado', status: 401, detail: 'Correo o contraseña incorrectos.' },
     }))
 
     const error = await authApi.login({ email: 'a@b.co', password: 'mala' }).catch((e: unknown) => e)
 
     expect(error).toBeInstanceOf(ApiError)
-    expect((error as ApiError).message).toBe('Email o contraseña incorrectos')
+    expect((error as ApiError).message).toBe('Correo o contraseña incorrectos.')
   })
 })

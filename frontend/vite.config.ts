@@ -13,6 +13,12 @@ export default defineConfig({
     // Debe coincidir con "paths" de tsconfig.app.json para que TypeScript lo entienda.
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  server: {
+    // Desarrollo: "/api" se reenvía al backend local. El navegador ve UN solo origen
+    // (localhost:5173), igual que en producción con el rewrite de Vercel: las cookies
+    // de sesión funcionan sin CORS y con SameSite.
+    proxy: { '/api': { target: 'http://localhost:8000', changeOrigin: false } },
+  },
   test: {
     environment: 'jsdom', // simula el DOM del navegador para probar componentes React
     globals: false, // imports explícitos (describe, it, expect) -> más claro qué viene de Vitest
