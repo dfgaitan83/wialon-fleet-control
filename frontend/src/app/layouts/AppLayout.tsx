@@ -27,7 +27,7 @@ export function AppLayout() {
       </a>
 
       <aside className="app-sidebar">
-        <Brand to={APP_BASE_PATH} tone="inverse" />
+        <Brand to={APP_BASE_PATH} />
         <SidebarNav items={items} />
       </aside>
 

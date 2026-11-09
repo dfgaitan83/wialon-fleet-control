@@ -90,7 +90,7 @@ export function VehiclesPage() {
     {
       id: 'driver',
       header: 'Conductor',
-      cell: (v) => v.driver?.name ?? <span className="vehicles-muted">Sin conductor asignado</span>,
+      cell: (v) => v.driver?.name ?? <span className="vehicles-muted">Sin conductor</span>,
     },
     {
       id: 'report',
