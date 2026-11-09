@@ -25,6 +25,7 @@ from app.api.cookies import CSRF_HEADER
 from app.api.errors import register_app_error_handlers
 from app.api.middleware import register_middleware
 from app.api.v1.auth import build_auth_router
+from app.api.v1.fleet import router as fleet_router
 from app.api.v1.schemas import HealthOut
 from app.api.v1.users import router as users_router
 from app.core.clock import utc_now
@@ -36,6 +37,7 @@ from app.core.logging import configure_logging
 from app.infrastructure.db.base import create_engine, create_session_factory
 from app.infrastructure.security import Argon2PasswordHasher, JwtAccessTokenService
 from app.infrastructure.wialon.client import WialonClient
+from app.infrastructure.wialon.gateway import WialonFleetGateway
 
 API_V1_PREFIX = "/api/v1"
 
@@ -75,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.wialon_timeout_seconds,
         )
         # Sin login aquí (login perezoso): el servidor arranca aunque Wialon esté caído.
+        app.state.fleet_gateway = WialonFleetGateway(app.state.wialon, clock=utc_now)  # caché TTL compartida
         try:
             yield  # la aplicación atiende peticiones mientras está "pausada" aquí
         finally:
@@ -120,6 +123,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     v1.include_router(_health_router())  # /api/v1/health (a través del proxy de Vercel)
     v1.include_router(build_auth_router(limiter, settings))
     v1.include_router(users_router)  # RF-06: gestión de usuarios (Admin)
+    v1.include_router(fleet_router)  # RF-10..13, RF-23: vehículos y dashboard
     app.include_router(v1)
     return app
 
