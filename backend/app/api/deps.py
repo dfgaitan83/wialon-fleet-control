@@ -38,10 +38,6 @@ from app.infrastructure.db.repositories import (
 logger = structlog.get_logger(__name__)
 
 
-def get_settings_dep(request: Request) -> Settings:
-    return request.app.state.settings
-
-
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     """Una sesión de BD por petición. Lo que el caso de uso no confirme se descarta al cerrar."""
     async with request.app.state.session_factory() as session:

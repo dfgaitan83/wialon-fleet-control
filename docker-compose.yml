@@ -1,0 +1,45 @@
+# =============================================================================
+# Entorno local con Docker (DEP-05): PostgreSQL + backend, igual que en producción.
+#
+#   docker compose up -d --build     -> levanta todo (migra la BD y crea el Admin)
+#   docker compose logs -f api       -> ver los logs del backend
+#   docker compose down              -> apaga (los datos quedan en el volumen fleet_pgdata)
+#   docker compose down -v           -> apaga y BORRA los datos locales
+#
+# Requisitos: backend/.env con WIALON_TOKEN, JWT_SECRET, ADMIN_EMAIL y ADMIN_PASSWORD
+# (ver backend/.env.example). El frontend se ejecuta aparte con `npm run dev`
+# (http://localhost:5173): su proxy reenvía /api a este backend en :8000.
+# =============================================================================
+name: wialon-fleet
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: fleet
+      POSTGRES_USER: fleet
+      POSTGRES_PASSWORD: fleet-local-only # solo local, sin datos reales; producción usa Neon
+    volumes:
+      - fleet_pgdata:/var/lib/postgresql/data
+    healthcheck: # el backend espera a que PostgreSQL acepte conexiones
+      test: ["CMD-SHELL", "pg_isready -U fleet -d fleet"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: ./backend # misma imagen (Dockerfile) que usa Render
+    env_file: ./backend/.env # token de Wialon, JWT y Admin (nunca en este archivo)
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql://fleet:fleet-local-only@db:5432/fleet
+      COOKIE_SECURE: "false" # http://localhost sin TLS
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  fleet_pgdata:
