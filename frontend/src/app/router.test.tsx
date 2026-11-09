@@ -2,6 +2,7 @@
  * Integración de rutas + layouts + login con el MISMO mapa de rutas de producción.
  * Se inyecta un AuthService falso (Inversión de dependencias): no hay red ni backend.
  */
+import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -13,6 +14,7 @@ import type { AuthService, AuthUser, Permission } from '@/shared/auth/types'
 import { clearCsrfCookie, setCsrfCookie } from '@/test/cookies'
 import { authUser } from '@/test/users'
 
+import { createQueryClient } from './queryClient'
 import { routes } from './router'
 
 function user(permissions?: Permission[]): AuthUser {
@@ -28,15 +30,18 @@ function fakeService(sessionUser: AuthUser): AuthService {
     },
     me: async () => sessionUser,
     logout: async () => undefined,
+    changePassword: async () => ({ ...sessionUser, mustChangePassword: false }),
   }
 }
 
 function renderAt(path: string, service: AuthService = fakeService(user())) {
   const router = createMemoryRouter(routes, { initialEntries: [path] }) // rutas REALES en memoria
   render(
-    <AuthProvider service={service}>
-      <RouterProvider router={router} />
-    </AuthProvider>,
+    <QueryClientProvider client={createQueryClient()}>
+      <AuthProvider service={service}>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </QueryClientProvider>,
   )
   return router
 }
@@ -126,6 +131,37 @@ describe('Router y layouts', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     expect(screen.getByRole('heading', { level: 1, name: /Tu flota/ })).toBeInTheDocument()
+  })
+
+  it('RF-06: con contraseña temporal solo puede ir a "Crea tu contraseña" y después entra al panel', async () => {
+    setCsrfCookie()
+    const temporary: AuthUser = { ...user(), mustChangePassword: true }
+    const router = renderAt('/app/vehicles', fakeService(temporary))
+
+    expect(await screen.findByRole('heading', { name: 'Crea tu contraseña' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/cambiar-contrasena')
+
+    await userEvent.type(screen.getByLabelText('Contraseña temporal'), 'Temporal-123456')
+    await userEvent.type(screen.getByLabelText('Nueva contraseña'), 'Nueva-Clave-2026')
+    await userEvent.type(screen.getByLabelText('Repite la nueva contraseña'), 'Nueva-Clave-2026')
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar contraseña' }))
+
+    expect(await screen.findByRole('navigation', { name: 'Principal' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/app')
+  })
+
+  it('RF-06: el cambio de contraseña valida la política antes de enviar', async () => {
+    setCsrfCookie()
+    renderAt('/cambiar-contrasena', fakeService({ ...user(), mustChangePassword: true }))
+    await screen.findByRole('heading', { name: 'Crea tu contraseña' })
+
+    await userEvent.type(screen.getByLabelText('Contraseña temporal'), 'Temporal-123456')
+    await userEvent.type(screen.getByLabelText('Nueva contraseña'), 'corta1')
+    await userEvent.type(screen.getByLabelText('Repite la nueva contraseña'), 'otra-distinta')
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar contraseña' }))
+
+    expect(screen.getByText('Debe tener al menos 12 caracteres')).toBeInTheDocument()
+    expect(screen.getByText('Las contraseñas no coinciden')).toBeInTheDocument()
   })
 
   it('con sesión activa, /login redirige al panel', async () => {

@@ -13,6 +13,7 @@
  */
 import type { ComponentType } from 'react'
 
+import { UsersPage } from '@/features/users/UsersPage'
 import type { Permission } from '@/shared/auth/types'
 
 import {
@@ -42,7 +43,7 @@ export const APP_NAVIGATION: readonly NavItem[] = [
   { segment: 'drivers', label: 'Conductores', permission: 'drivers:read', icon: DriverIcon, milestone: 'M7' },
   { segment: 'passengers', label: 'Pasajeros', permission: 'passengers:read', icon: PassengersIcon, milestone: 'M7' },
   { segment: 'history', label: 'Historial', permission: 'history:read', icon: HistoryIcon, milestone: 'M7' },
-  { segment: 'users', label: 'Usuarios', permission: 'users:read', icon: UsersIcon, milestone: 'M7' },
+  { segment: 'users', label: 'Usuarios', permission: 'users:read', icon: UsersIcon, milestone: 'M7', page: UsersPage },
   { segment: 'audit', label: 'Auditoría', permission: 'audit:read', icon: AuditIcon, milestone: 'M7' },
 ]
 

@@ -11,7 +11,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { ServerWakeNotice } from '@/shared/server/ServerWakeNotice'
 
-import { LOGIN_PATH } from './types'
+import { CHANGE_PASSWORD_PATH, LOGIN_PATH } from './types'
 import { useAuth } from './useAuth'
 
 interface RequireAuthProps {
@@ -19,7 +19,7 @@ interface RequireAuthProps {
 }
 
 export function RequireAuth({ children }: RequireAuthProps) {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
   const location = useLocation()
 
   // Mientras se valida el token tras un F5, no redirigir (evita "parpadeo" hacia /login).
@@ -38,6 +38,12 @@ export function RequireAuth({ children }: RequireAuthProps) {
     // replace: el /login no queda en el historial (el botón "atrás" no vuelve a la ruta protegida).
     // state.from: tras el login se puede volver a la página que se intentaba abrir.
     return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />
+  }
+
+  // RF-06: con contraseña temporal, la ÚNICA pantalla accesible es la de cambiarla
+  // (el backend además responde 403 a todo lo demás: doble capa).
+  if (user?.mustChangePassword && location.pathname !== CHANGE_PASSWORD_PATH) {
+    return <Navigate to={CHANGE_PASSWORD_PATH} replace />
   }
 
   return children ?? <Outlet />

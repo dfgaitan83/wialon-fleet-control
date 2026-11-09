@@ -12,11 +12,12 @@
  */
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 
+import { ChangePasswordPage } from '@/features/auth/ChangePasswordPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { LandingPage } from '@/features/landing/LandingPage'
 import { RequireAuth } from '@/shared/auth/RequireAuth'
 import { RequirePermission } from '@/shared/auth/RequirePermission'
-import { LOGIN_PATH } from '@/shared/auth/types'
+import { CHANGE_PASSWORD_PATH, LOGIN_PATH } from '@/shared/auth/types'
 
 import { AppLayout } from './layouts/AppLayout'
 import { PublicLayout } from './layouts/PublicLayout'
@@ -54,6 +55,13 @@ export const routes: RouteObject[] = [
         path: APP_BASE_PATH,
         element: <RequireAuth />, // sin sesión -> /login (recordando a dónde se quería ir)
         children: [{ element: <AppLayout />, children: APP_NAVIGATION.map(toModuleRoute) }],
+      },
+      {
+        // RF-06: cambio de contraseña (obligatorio con contraseña temporal). Requiere sesión,
+        // pero vive fuera del AppLayout: con contraseña temporal no se muestra el panel.
+        path: CHANGE_PASSWORD_PATH,
+        element: <RequireAuth />,
+        children: [{ element: <PublicLayout />, children: [{ index: true, element: <ChangePasswordPage /> }] }],
       },
     ],
   },
