@@ -119,8 +119,32 @@
   text-align: end;
 }
 
+/* Entrada de datos: la dona se DIBUJA (desde longitud 0) y las barras CRECEN (scaleX). */
+.ui-chart__arc {
+  animation: chart-draw 1s var(--ease-out, ease-out) both 350ms;
+}
+
+@keyframes chart-draw {
+  from {
+    stroke-dasharray: 0 264;
+  }
+}
+
+.ui-chart__bar {
+  transform-origin: left center;
+  animation: chart-grow 900ms var(--ease-out, ease-out) both 400ms;
+}
+
+@keyframes chart-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ui-chart__arc {
+  .ui-chart__arc,
+  .ui-chart__bar {
     transition: none;
+    animation: none;
   }
 }
