@@ -5,9 +5,12 @@ nomenclatura abreviada de Wialon (``nm``, ``pos.y``, ``bu``...). La traducción
 desde Wialon la hacen los mappers de ``app/infrastructure/wialon/mappers.py``.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
+
+PersonKind = Literal["driver", "passenger"]  # conductor | pasajero ("tag" en Wialon)
 
 
 class VehicleStatus(StrEnum):
@@ -66,10 +69,39 @@ class Vehicle:
 
 
 @dataclass(frozen=True)
+class Person:
+    """Conductor o pasajero de Wialon (ambos viven DENTRO de un recurso)."""
+
+    id: int
+    resource_id: int
+    name: str
+    code: str = ""
+    description: str = ""
+    phone: str = ""
+    custom_fields: dict[str, str] = field(default_factory=dict)  # "jp" en Wialon
+    vehicle_id: int | None = None  # unidad vinculada (bu); None = sin vehículo
+
+
+@dataclass(frozen=True)
+class PersonChanges:
+    """Cambios PARCIALES: None = no tocar. El adaptador fusiona con el valor actual
+    (Wialon BORRA lo que no se reenvía; verificado: omitir jp vacía los campos)."""
+
+    name: str | None = None
+    code: str | None = None
+    description: str | None = None
+    phone: str | None = None
+    custom_fields: dict[str, str] | None = None  # si se envía, REEMPLAZA el conjunto completo
+
+
+@dataclass(frozen=True)
 class FleetSnapshot:
-    """Foto de la flota en un instante: vehículos + totales de personas (para KPIs)."""
+    """Foto de la flota en un instante: vehículos, conductores y pasajeros."""
 
     vehicles: tuple[Vehicle, ...]
     total_drivers: int
     total_passengers: int
     fetched_at: datetime
+    drivers: tuple[Person, ...] = ()
+    passengers: tuple[Person, ...] = ()
+    people_resource_id: int | None = None  # recurso donde se crean conductores/pasajeros nuevos

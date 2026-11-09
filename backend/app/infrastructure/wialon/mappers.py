@@ -18,10 +18,17 @@ from app.domain.fleet import (
     DriverRef,
     FleetSnapshot,
     PassengerRef,
+    Person,
     Position,
     Vehicle,
 )
-from app.infrastructure.wialon.raw_models import RawPosition, RawResource, RawUnit
+from app.infrastructure.wialon.raw_models import (
+    RawDriver,
+    RawPassenger,
+    RawPosition,
+    RawResource,
+    RawUnit,
+)
 
 KMH_PER_MPH = 1.609344
 MPH_MEASURE_UNITS = frozenset({1, 2})  # 1 = EE. UU., 2 = imperial
@@ -78,12 +85,32 @@ def to_vehicle(
     )
 
 
+def to_person(raw: RawDriver | RawPassenger, resource_id: int) -> Person:
+    """Conductor o pasajero crudo -> entidad Person (el teléfono solo existe en algunos)."""
+    return Person(
+        id=raw.id,
+        resource_id=resource_id,
+        name=raw.n,
+        code=raw.c,
+        description=raw.ds,
+        phone=raw.p,
+        custom_fields=dict(raw.jp),
+        vehicle_id=raw.bu or None,
+    )
+
+
 def build_snapshot(units: list[RawUnit], resources: list[RawResource], fetched_at: datetime) -> FleetSnapshot:
     drivers = _drivers_by_unit(resources)
     passengers = _passengers_by_unit(resources)
+    all_drivers = tuple(to_person(d, r.id) for r in resources for d in r.drvrs.values())
+    all_passengers = tuple(to_person(t, r.id) for r in resources for t in r.tags.values())
     return FleetSnapshot(
         vehicles=tuple(to_vehicle(u, drivers.get(u.id), passengers.get(u.id, ())) for u in units),
-        total_drivers=sum(len(r.drvrs) for r in resources),
-        total_passengers=sum(len(r.tags) for r in resources),
+        total_drivers=len(all_drivers),
+        total_passengers=len(all_passengers),
         fetched_at=fetched_at,
+        drivers=tuple(sorted(all_drivers, key=lambda p: p.name.lower())),
+        passengers=tuple(sorted(all_passengers, key=lambda p: p.name.lower())),
+        # Recurso con más personas = el que la cuenta usa para conductores/pasajeros.
+        people_resource_id=max(resources, key=lambda r: len(r.drvrs) + len(r.tags)).id if resources else None,
     )

@@ -101,6 +101,14 @@ class AuditLog(Protocol):
     async def add(self, entry: AuditEntry) -> None: ...
 
 
+class AuditReader(Protocol):
+    """Lectura del registro de auditoría (RF-26), separada de la escritura (ISP)."""
+
+    async def list_page(
+        self, offset: int, limit: int, *, category: str | None, search: str | None
+    ) -> tuple[list[AuditEntry], int]: ...
+
+
 class PasswordHasher(Protocol):
     def hash(self, password: str) -> str: ...
     def verify(self, password_hash: str, password: str) -> bool: ...

@@ -17,7 +17,7 @@ from datetime import datetime
 from cachetools import TTLCache
 
 from app.application.errors import ProviderUnavailable
-from app.domain.fleet import FleetSnapshot
+from app.domain.fleet import FleetSnapshot, Person, PersonChanges, PersonKind
 from app.infrastructure.wialon.client import (
     RESOURCE_FLAG_BASE,
     RESOURCE_FLAG_DRIVERS,
@@ -29,6 +29,7 @@ from app.infrastructure.wialon.client import (
 )
 from app.infrastructure.wialon.errors import WialonError
 from app.infrastructure.wialon.mappers import build_snapshot
+from app.infrastructure.wialon.people_writer import WialonPeopleWriter
 from app.infrastructure.wialon.raw_models import parse_resources, parse_units
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class WialonFleetGateway:
         self, client: WialonClient, clock: Callable[[], datetime], ttl_seconds: float = SNAPSHOT_TTL_SECONDS
     ) -> None:
         self._client = client
+        self._writer = WialonPeopleWriter(client)
         self._clock = clock
         self._cache: TTLCache[str, FleetSnapshot] = TTLCache(maxsize=1, ttl=ttl_seconds)
         self._lock = asyncio.Lock()
@@ -64,6 +66,33 @@ class WialonFleetGateway:
     def invalidate(self) -> None:
         """Tras una escritura en Wialon: la próxima lectura trae datos frescos."""
         self._cache.clear()
+
+    # --- Escrituras de personas (mismo candado: Wialon no admite peticiones paralelas) ---
+    async def create_person(self, kind: PersonKind, resource_id: int, data: PersonChanges) -> Person:
+        async with self._lock:
+            person = await self._writer.create(kind, resource_id, data)
+            self.invalidate()
+            return person
+
+    async def update_person(
+        self, kind: PersonKind, resource_id: int, person_id: int, changes: PersonChanges
+    ) -> Person:
+        async with self._lock:
+            person = await self._writer.update(kind, resource_id, person_id, changes)
+            self.invalidate()
+            return person
+
+    async def delete_person(self, kind: PersonKind, resource_id: int, person_id: int) -> None:
+        async with self._lock:
+            await self._writer.delete(kind, resource_id, person_id)
+            self.invalidate()
+
+    async def set_person_binding(
+        self, kind: PersonKind, resource_id: int, person_id: int, unit_id: int, *, bind: bool
+    ) -> None:
+        async with self._lock:
+            await self._writer.set_binding(kind, resource_id, person_id, unit_id, bind=bind)
+            self.invalidate()
 
     async def _fetch(self) -> FleetSnapshot:
         try:
