@@ -10,6 +10,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.application.fleet_service import FleetSummary, VehicleView
+from app.application.history_service import Track
 from app.domain.fleet import Position, VehicleStatus
 
 
@@ -133,4 +134,41 @@ class DashboardSummaryOut(BaseModel):
             total_drivers=s.total_drivers,
             total_passengers=s.total_passengers,
             generated_at=s.generated_at,
+        )
+
+
+class TrackPointOut(BaseModel):
+    """Punto del recorrido (versión compacta: se envían hasta 2000)."""
+
+    latitude: float
+    longitude: float
+    speed_kmh: float
+    heading_deg: int
+    recorded_at: datetime
+
+
+class TrackOut(BaseModel):
+    """Recorrido de un vehículo en un rango (RF-24). Estadísticas calculadas en backend."""
+
+    vehicle_id: int
+    start: datetime
+    end: datetime
+    total_points: int  # mensajes válidos en Wialon (antes del muestreo)
+    distance_km: float
+    max_speed_kmh: float
+    moving_minutes: float
+    points: list[TrackPointOut]
+
+    @classmethod
+    def from_track(cls, t: Track) -> "TrackOut":
+        return cls(
+            vehicle_id=t.vehicle_id, start=t.start, end=t.end, total_points=t.total_points,
+            distance_km=t.distance_km, max_speed_kmh=t.max_speed_kmh, moving_minutes=t.moving_minutes,
+            points=[
+                TrackPointOut(
+                    latitude=p.latitude, longitude=p.longitude, speed_kmh=p.speed_kmh,
+                    heading_deg=p.heading_deg, recorded_at=p.recorded_at,
+                )
+                for p in t.points
+            ],
         )

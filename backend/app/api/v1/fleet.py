@@ -1,12 +1,14 @@
-"""Endpoints de flota: /api/v1/vehicles* y /api/v1/dashboard/summary (RF-10..13, RF-23)."""
+"""Endpoints de flota: /api/v1/vehicles*, /dashboard/summary e historial (RF-10..13, RF-23, RF-24)."""
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import FleetServiceDep, require_permission
+from app.api.deps import FleetServiceDep, HistoryServiceDep, require_permission
 from app.api.v1.fleet_schemas import (
     DashboardSummaryOut,
+    TrackOut,
     VehicleDetailOut,
     VehicleOut,
     VehiclePositionOut,
@@ -20,6 +22,7 @@ from app.domain.users import User
 _PROBLEM = {"model": None, "content": {"application/problem+json": {}}}
 
 VehiclesReader = Annotated[User, Depends(require_permission(Permission.VEHICLES_READ))]
+HistoryReader = Annotated[User, Depends(require_permission(Permission.HISTORY_READ))]
 DashboardReader = Annotated[User, Depends(require_permission(Permission.DASHBOARD_READ))]
 
 router = APIRouter(tags=["fleet"], responses={401: _PROBLEM, 403: _PROBLEM, 503: _PROBLEM})
@@ -65,3 +68,19 @@ async def get_vehicle(vehicle_id: int, _user: VehiclesReader, service: FleetServ
 @router.get("/dashboard/summary", response_model=DashboardSummaryOut, summary="KPIs del dashboard (RF-23)")
 async def dashboard_summary(_user: DashboardReader, service: FleetServiceDep) -> DashboardSummaryOut:
     return DashboardSummaryOut.from_summary(await service.summary())
+
+
+@router.get(
+    "/vehicles/{vehicle_id}/track",
+    response_model=TrackOut,
+    responses={404: _PROBLEM, 422: _PROBLEM},
+    summary="Historial de recorrido en un rango (máx. 7 días) para el playback (RF-24)",
+)
+async def vehicle_track(
+    vehicle_id: int,
+    _user: HistoryReader,
+    service: HistoryServiceDep,
+    start: Annotated[datetime, Query(alias="from", description="ISO-8601 con zona, p. ej. 2026-11-08T05:00:00Z")],
+    end: Annotated[datetime, Query(alias="to", description="ISO-8601 con zona")],
+) -> TrackOut:
+    return TrackOut.from_track(await service.track(vehicle_id, start, end))

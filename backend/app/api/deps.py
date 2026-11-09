@@ -25,6 +25,7 @@ from app.application.audit_service import AuditService
 from app.application.auth_service import AuthPolicy, AuthService
 from app.application.errors import PasswordChangeRequired, PermissionDenied
 from app.application.fleet_service import FleetService
+from app.application.history_service import HistoryService
 from app.application.people_service import PeopleService
 from app.application.user_service import UserService
 from app.core.clock import utc_now
@@ -98,6 +99,13 @@ def get_fleet_service(request: Request) -> FleetService:
 
 
 FleetServiceDep = Annotated[FleetService, Depends(get_fleet_service)]
+
+
+def get_history_service(request: Request) -> HistoryService:
+    return HistoryService(request.app.state.fleet_gateway, clock=utc_now)
+
+
+HistoryServiceDep = Annotated[HistoryService, Depends(get_history_service)]
 
 
 def get_people_service(request: Request, session: SessionDep) -> PeopleService:
