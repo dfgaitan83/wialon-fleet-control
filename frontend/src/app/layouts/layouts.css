@@ -178,3 +178,9 @@
   .user-menu__identity { display: grid; text-align: right; }
   .public-header { padding-inline: var(--space-8); }
 }
+
+@media (pointer: coarse) {
+  .sidebar-link {
+    min-height: 2.75rem; /* 44 px: objetivo táctil mínimo */
+  }
+}

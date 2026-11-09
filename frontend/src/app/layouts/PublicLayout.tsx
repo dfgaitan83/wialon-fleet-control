@@ -2,7 +2,7 @@
  * Layout PÚBLICO (landing, login): cabecera con marca, contenido y pie.
  * Responsabilidad única: la estructura de las páginas públicas. No pide datos.
  */
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 
 import { LOGIN_PATH } from '@/shared/auth/types'
 import { useAuth } from '@/shared/auth/useAuth'
@@ -14,7 +14,9 @@ import './layouts.css'
 
 export function PublicLayout() {
   const { status } = useAuth()
+  const { pathname } = useLocation()
   const isAuthenticated = status === 'authenticated'
+  const isOnLogin = pathname === LOGIN_PATH // en /login el botón "Ingresar" sería redundante
 
   return (
     <div className="public-shell">
@@ -23,12 +25,14 @@ export function PublicLayout() {
       </a>
       <header className="public-header">
         <Brand to="/" />
+        {!isOnLogin && (
         <nav aria-label="Acceso">
           {/* Si ya hay sesión no tiene sentido "Ingresar": se ofrece volver al panel. */}
           <ButtonLink variant="primary" to={isAuthenticated ? APP_BASE_PATH : LOGIN_PATH}>
             {isAuthenticated ? 'Ir al panel' : 'Ingresar'}
           </ButtonLink>
         </nav>
+        )}
       </header>
 
       <main id="contenido" className="public-main" tabIndex={-1}>
