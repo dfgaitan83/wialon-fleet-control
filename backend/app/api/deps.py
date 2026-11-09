@@ -24,10 +24,12 @@ from app.api.cookies import ACCESS_COOKIE
 from app.application.audit_service import AuditService
 from app.application.auth_service import AuthPolicy, AuthService
 from app.application.errors import PasswordChangeRequired, PermissionDenied
+from app.application.fleet_service import FleetService
 from app.application.user_service import UserService
 from app.core.clock import utc_now
 from app.core.config import Settings
 from app.domain.permissions import Permission
+from app.domain.status import ThresholdStatusStrategy
 from app.domain.users import User
 from app.infrastructure.db.repositories import (
     SqlAuditLog,
@@ -87,6 +89,14 @@ def get_user_service(request: Request, session: SessionDep) -> UserService:
 
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
+
+
+def get_fleet_service(request: Request) -> FleetService:
+    # El gateway es UNO por app (app.state): comparte la caché TTL y la sesión de Wialon.
+    return FleetService(request.app.state.fleet_gateway, ThresholdStatusStrategy(), clock=utc_now)
+
+
+FleetServiceDep = Annotated[FleetService, Depends(get_fleet_service)]
 
 
 def client_ip(request: Request) -> str | None:

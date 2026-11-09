@@ -53,6 +53,15 @@ class ValidationFailed(AppError):
         self.errors = errors
 
 
+class ProviderUnavailable(AppError):
+    """El proveedor GPS (Wialon) no responde o falló: error temporal -> 503 (INT-05)."""
+
+    def __init__(
+        self, detail: str = "El proveedor GPS no está disponible en este momento. Intenta de nuevo en unos segundos."
+    ) -> None:
+        super().__init__(detail)
+
+
 class NotFound(AppError):
     """El recurso no existe (o no es visible para el usuario)."""
 

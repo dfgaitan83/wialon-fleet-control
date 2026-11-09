@@ -15,6 +15,7 @@ from app.application.errors import (
     NotFound,
     PasswordChangeRequired,
     PermissionDenied,
+    ProviderUnavailable,
     ValidationFailed,
 )
 from app.core.errors import problem_response
@@ -28,6 +29,7 @@ _STATUS_BY_ERROR: tuple[tuple[type[AppError], int, str], ...] = (
     (NotFound, 404, "not-found"),
     (Conflict, 409, "conflict"),
     (ValidationFailed, 422, "validation"),
+    (ProviderUnavailable, 503, "provider-unavailable"),
 )
 
 
